@@ -1,0 +1,123 @@
+/* Pinch — design tokens
+   Palette: Sage · Typeface: Plus Jakarta Sans (self-hosted, see /fonts)
+   Light is the default. Dark applies via the OS setting unless the user
+   picks a theme in Settings (set data-theme="light" | "dark" on <html>). */
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../fonts/plus-jakarta-sans-latin-wght-normal.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../fonts/plus-jakarta-sans-latin-wght-italic.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  /* Colour — light */
+  --bg: #F4F5F1;            /* app background */
+  --bg-rgb: 244 245 241;    /* used to build the page edge fades */
+  --surface: #FFFFFF;       /* cards, sheets */
+  --surface-rgb: 255 255 255; /* used to build the photo fade */
+  --sunk: #EBEDE7;          /* segmented controls, scaler card, flag panels */
+  --ink: #191C1A;           /* primary text */
+  --muted: #5A615C;         /* secondary text, tagged ingredients */
+  --line: #DFE2DB;          /* borders, dividers */
+  --accent: #2E6847;        /* sage — primary buttons, active chips */
+  --on-accent: #FFFFFF;
+  --soft: #E0ECE3;          /* accent tint — active chip bg, step numbers */
+  --photo-placeholder: #5E7565;
+  --scrim: rgba(18, 22, 19, 0.40);
+
+  /* Brand (icon + splash) */
+  --brand-green: #2E6847;
+  --brand-salt: #FFFFFF;
+  --brand-pepper: #8AC6A2;
+
+  /* Type */
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display-weight: 700;
+  --display-tracking: -0.03em;
+  --fs-wordmark: 30px;   /* app header */
+  --fs-sheet-title: 24px;
+  --fs-card-title: 16px;
+  --fs-body: 15px;
+  --fs-step: 14px;
+  --fs-tag: 12.5px;      /* tagged ingredients under method steps — italic */
+  --fs-meta: 12px;
+  --fs-label: 12px;
+
+  /* Shape */
+  --r-card: 18px;
+  --r-sheet: 28px;
+  --r-control: 14px;     /* segmented container */
+  --r-control-inner: 10px;
+  --r-input: 12px;
+  --r-pill: 999px;
+  --tap: 44px;           /* minimum touch target */
+
+  /* Elevation */
+  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.30);
+  --shadow-fab: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --shadow-seg: 0 1px 2px rgba(0, 0, 0, 0.10);
+
+  /* Photo fades — eased, so the fade starts low and finishes just behind the text */
+  --fade-card: linear-gradient(to bottom,
+      rgb(var(--surface-rgb) / 0) 14%,
+      rgb(var(--surface-rgb) / 0.14) 24%,
+      rgb(var(--surface-rgb) / 0.42) 34%,
+      rgb(var(--surface-rgb) / 0.78) 44%,
+      var(--surface) 52%);
+  --fade-sheet: linear-gradient(to bottom,
+      rgb(var(--surface-rgb) / 0) 20%,
+      rgb(var(--surface-rgb) / 0.14) 32%,
+      rgb(var(--surface-rgb) / 0.42) 44%,
+      rgb(var(--surface-rgb) / 0.78) 54%,
+      var(--surface) 62%);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101311;
+    --bg-rgb: 16 19 17;
+    --surface: #191D1A;
+    --surface-rgb: 25 29 26;
+    --sunk: #222723;
+    --ink: #ECEEEA;
+    --muted: #A1A9A3;
+    --line: #2C322E;
+    --accent: #8AC6A2;
+    --on-accent: #0C1A11;
+    --soft: #1D2F25;
+    --photo-placeholder: #3A4B3F;
+    --scrim: rgba(0, 0, 0, 0.62);
+    --brand-green: #101311;
+    --brand-salt: #ECEEEA;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101311;
+  --bg-rgb: 16 19 17;
+  --surface: #191D1A;
+  --surface-rgb: 25 29 26;
+  --sunk: #222723;
+  --ink: #ECEEEA;
+  --muted: #A1A9A3;
+  --line: #2C322E;
+  --accent: #8AC6A2;
+  --on-accent: #0C1A11;
+  --soft: #1D2F25;
+  --photo-placeholder: #3A4B3F;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --brand-green: #101311;
+  --brand-salt: #ECEEEA;
+  color-scheme: dark;
+}
