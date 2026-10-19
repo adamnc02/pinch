@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Claude Code: personal, machine-local settings (shared skills stay tracked)
+.claude/settings.local.json
+
+# Editors
+.vscode/
+*.swp
+
+# Local secrets, never commit (the Supabase anon key lives in code; nothing else should)
+.env
+.env.*

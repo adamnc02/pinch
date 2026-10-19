@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="32" height="32">
+  <!-- Favicon: simplified (no holes, thicker band, rounded tile) so it reads at 16–32px -->
+  <rect width="180" height="180" rx="38" fill="#2E6847"/>
+  <rect x="36" y="32" width="46" height="40" rx="20" fill="#FFFFFF"/>
+  <rect x="34" y="58" width="50" height="92" rx="14" fill="#FFFFFF"/>
+  <rect x="34" y="60" width="50" height="10" fill="#2E6847"/>
+  <rect x="98" y="32" width="46" height="40" rx="20" fill="#8AC6A2"/>
+  <rect x="96" y="58" width="50" height="92" rx="14" fill="#8AC6A2"/>
+  <rect x="96" y="60" width="50" height="10" fill="#2E6847"/>
+</svg>

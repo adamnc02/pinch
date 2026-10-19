@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinch — static screen reference</title>
+<link rel="stylesheet" href="tokens.css">
+<script>
+  // ?theme=dark or ?theme=light forces a theme for review
+  var t = new URLSearchParams(location.search).get('theme');
+  if (t) document.documentElement.setAttribute('data-theme', t);
+  // ?frame=03 shows only that frame (used to render screenshots)
+  var f = new URLSearchParams(location.search).get('frame');
+  if (f) document.documentElement.setAttribute('data-frame', f);
+</script>
+<style>
+  /* ---------- reference page chrome (not part of the app) ---------- */
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 48px; background: #E9E9E6; font-family: var(--font); color: var(--ink); }
+  .board { display: flex; flex-wrap: wrap; gap: 48px; align-items: flex-start; }
+  .frame { display: flex; flex-direction: column; gap: 12px; }
+  .frame > h2 { margin: 0; font-size: 14px; font-weight: 600; color: #4A4A47; }
+  .phone { width: 390px; height: 844px; border-radius: 48px; overflow: hidden; position: relative;
+           background: var(--bg); color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 30px 60px rgba(0,0,0,.12); }
+
+  html[data-frame] body { padding: 0; background: var(--bg); }
+  html[data-frame] .frame { display: none; }
+  html[data-frame] .frame.on { display: flex; }
+  html[data-frame] .frame > h2 { display: none; }
+  html[data-frame] .phone { border-radius: 0; box-shadow: none; }
+
+  /* ---------- shared ---------- */
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .icon-btn { width: var(--tap); height: var(--tap); padding: 0; border: none; border-radius: 50%;
+              background: transparent; display: grid; place-items: center; color: var(--ink); }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8;
+          stroke-linecap: round; stroke-linejoin: round; }
+
+  /* segmented control (By meal / By cuisine, Ingredients / Method) */
+  .seg { display: flex; padding: 4px; border-radius: var(--r-control); background: var(--sunk); }
+  .seg button { flex: 1; height: 40px; border: none; border-radius: var(--r-control-inner); background: transparent;
+                color: var(--muted); font-weight: 600; font-size: 14px; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-seg); }
+
+  /* chips */
+  .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .chip { flex-shrink: 0; height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--r-pill);
+          background: transparent; color: var(--muted); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .chip[aria-pressed="true"] { border-color: transparent; background: var(--soft); color: var(--accent); }
+
+  /* flags — CSS only (the app should use a flag component; these are the fallback for “no photo”) */
+  .flag { position: relative; display: flex; width: 60px; height: 40px; border-radius: 5px; overflow: hidden;
+          box-shadow: 0 0 0 1px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.10); flex-shrink: 0; }
+  .flag.sm { width: 20px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+  .flag > i { flex: 1; }
+  .flag.col { flex-direction: column; }
+  .flag .dot { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); border-radius: 50%; }
+  .flag .bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: #fff; }
+
+  /* ---------- home ---------- */
+  .home { display: flex; flex-direction: column; height: 100%; }
+  .app-header { display: flex; align-items: center; justify-content: space-between; padding: 60px 14px 4px 24px; }
+  .wordmark { font-weight: var(--display-weight); letter-spacing: var(--display-tracking); font-size: var(--fs-wordmark); line-height: 1; }
+  .filters { padding: 16px 20px 0; display: flex; flex-direction: column; gap: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 120px; }
+  /* The grid scrolls under a still header. Content dissolves into the page at the
+     top and bottom (BLOC/Listly .edge-fade). The transparent end is written as
+     rgb(var(--bg-rgb) / 0), never `transparent`, which some browsers interpolate
+     through black. pointer-events: none so a fade never swallows a tap. */
+  .scroll { position: relative; flex: 1 1 0; min-height: 0; }
+  .scroll > .grid { height: 100%; overflow-y: auto; scrollbar-width: none; }
+  .edge-fade { position: absolute; left: 0; right: 0; pointer-events: none; z-index: 5; }
+  .edge-fade-top { top: 0; height: 20px; background: linear-gradient(to bottom, rgb(var(--bg-rgb) / 1), rgb(var(--bg-rgb) / 0)); }
+  .edge-fade-bottom { bottom: 0; height: 124px; background: linear-gradient(to top, rgb(var(--bg-rgb) / 1) 40%, rgb(var(--bg-rgb) / 0)); }
+
+  .card { position: relative; height: 200px; border-radius: var(--r-card); overflow: hidden; background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line); }
+  .card .media { position: absolute; inset: 0; display: flex; justify-content: center; }
+  .card .media.photo { background: var(--photo-placeholder); color: rgba(255,255,255,.6); padding-top: 64px; }
+  .card .media.flagged { background: var(--sunk); padding-top: 52px; }
+  .card .body { position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 6px 12px; background: var(--fade-card);
+                display: flex; align-items: flex-end; gap: 2px; }
+  .card .text { flex: 1; min-width: 0; padding-bottom: 6px; }
+  .card h3 { margin: 0; font-weight: var(--display-weight); letter-spacing: var(--display-tracking); font-size: var(--fs-card-title);
+             line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card p { margin: 3px 0 0; font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .fab { position: absolute; z-index: 10; right: 20px; bottom: 32px; width: 60px; height: 60px; border: none; border-radius: 50%;
+         background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: var(--shadow-fab); }
+  .fab svg.i { width: 24px; height: 24px; stroke-width: 2.2; }
+
+  /* ---------- modal backdrop ---------- */
+  .ghost { position: absolute; inset: 0; padding: 60px 24px 0; display: flex; flex-direction: column; gap: 20px; }
+  .ghost .g-seg { height: 48px; border-radius: var(--r-control); background: var(--sunk); }
+  .ghost .g-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ghost .g-grid div { height: 200px; border-radius: var(--r-card); background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+  .scrim { position: absolute; inset: 0; background: var(--scrim); }
+
+  /* ---------- recipe sheet (centred) ---------- */
+  .sheet-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .sheet { width: 100%; max-height: 812px; background: var(--surface); border-radius: var(--r-sheet); overflow: hidden;
+           display: flex; flex-direction: column; box-shadow: var(--shadow-sheet); }
+  .hero { position: relative; flex-shrink: 0; height: 224px; background: var(--photo-placeholder); }
+  .hero .ph { position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%); color: rgba(255,255,255,.55); }
+  .hero .ph svg.i { width: 34px; height: 34px; stroke-width: 1.5; }
+  .hero .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: var(--fade-sheet); }
+  .hero .tags { position: absolute; top: 22px; left: 20px; font-size: 12px; font-weight: 700; letter-spacing: .08em;
+                text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+  .hero .close { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.32); color: #fff; }
+  .hero .title-row { position: absolute; left: 20px; right: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .hero .edit { align-self: flex-end; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 4px 12px rgba(0,0,0,.12); }
+  .hero .edit svg.i { width: 18px; height: 18px; }
+  .hero h2 { margin: 0; font-weight: var(--display-weight); letter-spacing: var(--display-tracking); font-size: var(--fs-sheet-title); line-height: 1.15; }
+  .sheet-body { padding: 14px 14px 20px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+
+  .scaler { display: flex; align-items: center; justify-content: space-between; background: var(--sunk); border-radius: 16px; padding: 8px 8px 8px 16px; }
+  .scaler .lbl { font-size: 12px; color: var(--muted); }
+  .scaler .val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .scaler .val small { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .scaler .ctrl { display: flex; align-items: center; gap: 2px; }
+  .scaler .ctrl .icon-btn { background: var(--surface); }
+  .scaler .ctrl svg.i { width: 18px; height: 18px; stroke-width: 2.2; }
+  .scaler .mult { min-width: 48px; text-align: center; font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
+
+  .ings { list-style: none; margin: 0; padding: 0 4px; }
+  .ings li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-body); }
+  .ings b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .steps { list-style: none; margin: 0; padding: 6px 4px 0; display: flex; flex-direction: column; gap: 16px; }
+  .steps li { display: flex; gap: 12px; }
+  .steps .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--soft); color: var(--accent);
+              display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .steps p { margin: 0; font-size: var(--fs-step); line-height: 1.5; }
+  .steps .tagged { margin-top: 5px; font-size: var(--fs-tag); line-height: 1.45; font-style: italic; color: var(--muted); }
+
+  /* ---------- add recipe (bottom sheet) ---------- */
+  .bottom-sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 44px; background: var(--surface);
+                  border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding: 10px 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow: auto; }
+  .grabber { align-self: center; width: 40px; height: 5px; border-radius: 3px; background: var(--line); }
+  .bs-head { display: flex; align-items: center; justify-content: space-between; margin-top: -4px; }
+  .bs-head h2 { margin: 0; font-weight: var(--display-weight); letter-spacing: var(--display-tracking); font-size: 24px; }
+  .bs-head .icon-btn { margin-right: -10px; color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .option { text-align: left; padding: 14px; border-radius: 16px; border: 2px solid var(--line); background: transparent;
+            display: flex; flex-direction: column; gap: 8px; color: var(--ink); }
+  .option svg.i { color: var(--muted); }
+  .option[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); }
+  .option[aria-pressed="true"] svg.i { color: var(--accent); }
+  .option b { font-size: 14px; }
+  .option span { font-size: 12px; color: var(--muted); }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label, .field .label { font-size: var(--fs-label); font-weight: 600; color: var(--muted); }
+  .input { height: 46px; padding: 0 14px; border-radius: var(--r-input); border: 1px solid var(--line); background: var(--bg);
+           color: var(--ink); font: inherit; font-size: 15px; width: 100%; }
+  .input::placeholder { color: var(--muted); }
+  .stepper { height: 46px; border-radius: var(--r-input); border: 1px solid var(--line); background: var(--bg);
+             display: flex; align-items: center; justify-content: space-between; }
+  .stepper b { font-size: 16px; font-variant-numeric: tabular-nums; }
+  .stepper svg.i { width: 16px; height: 16px; stroke-width: 2.2; }
+  .select { display: flex; align-items: center; gap: 10px; text-align: left; }
+  .select span { flex: 1; }
+  .select svg.i { width: 16px; height: 16px; color: var(--muted); }
+  .meal { height: 40px; border-radius: var(--r-input); border: 1px solid var(--line); background: transparent; font-weight: 600; font-size: 13px; }
+  .meal[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 700; }
+  .photo-drop { height: 60px; padding: 0 14px; border-radius: 14px; border: 1.5px dashed var(--line); background: transparent;
+                display: flex; align-items: center; gap: 12px; text-align: left; }
+  .photo-drop svg.i { color: var(--muted); }
+  .photo-drop b { display: block; font-size: 14px; font-weight: 600; }
+  .photo-drop span { font-size: 12px; color: var(--muted); }
+  .btn { height: 44px; border: none; border-radius: var(--r-input); font-weight: 600; font-size: 14px;
+         display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.secondary { background: var(--sunk); color: var(--ink); }
+  .btn svg.i { width: 18px; height: 18px; }
+  .row-item { display: flex; justify-content: space-between; padding: 10px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .row-item b { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .paste { min-height: 220px; padding: 14px; border-radius: var(--r-input); border: 1px solid var(--line); background: var(--bg);
+           font: inherit; font-size: 14px; line-height: 1.5; color: var(--ink); resize: vertical; width: 100%; }
+  .paste::placeholder { color: var(--muted); }
+  .hint { margin: 0; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Icon sprite (Lucide-style strokes) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-list-plus" viewBox="0 0 24 24"><path d="M11 12H3M16 6H3M16 18H3M18 9v6M21 12h-6"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-barcode" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 7v10M12 7v10M16 7v10"/></symbol>
+</svg>
+
+<div class="board">
+
+  <!-- 1. HOME — by meal -->
+  <section class="frame"><h2>01 Home — by meal</h2>
+  <div class="phone" id="home">
+    <div class="home">
+      <header class="app-header">
+        <div class="wordmark">Pinch</div>
+        <button class="icon-btn" aria-label="Settings"><svg class="i" style="width:22px;height:22px;stroke-width:1.7"><use href="#i-gear"/></svg></button>
+      </header>
+      <div class="filters">
+        <div class="seg" role="group" aria-label="Group recipes">
+          <button aria-pressed="true">By meal</button><button aria-pressed="false">By cuisine</button>
+        </div>
+        <div class="chips">
+          <button class="chip" aria-pressed="true">All</button>
+          <button class="chip" aria-pressed="false">Breakfast</button>
+          <button class="chip" aria-pressed="false">Lunch</button>
+          <button class="chip" aria-pressed="false">Dinner</button>
+        </div>
+      </div>
+      <div class="scroll"><div class="grid">
+        <article class="card"><div class="media photo"><svg class="i" style="width:26px;height:26px;stroke-width:1.6"><use href="#i-image"/></svg></div>
+          <div class="body"><div class="text"><h3>Spaghetti carbonara</h3><p>Dinner · Italy</p></div></div></article>
+        <article class="card"><div class="media flagged"><span class="flag" role="img" aria-label="Flag of Japan"><i style="background:#F4F5F0"></i><span class="dot" style="width:24px;height:24px;background:#BC002D"></span></span></div>
+          <div class="body"><div class="text"><h3>Chicken katsu curry</h3><p>Dinner · Japan</p></div></div></article>
+        <article class="card"><div class="media flagged"><span class="flag col" role="img" aria-label="Flag of Thailand"><i style="background:#A51931"></i><i style="background:#F4F5F0"></i><i style="background:#2D2A4A;flex:2"></i><i style="background:#F4F5F0"></i><i style="background:#A51931"></i></span></div>
+          <div class="body"><div class="text"><h3>Pad kra pao</h3><p>Lunch · Thailand</p></div></div></article>
+        <article class="card"><div class="media photo"><svg class="i" style="width:26px;height:26px;stroke-width:1.6"><use href="#i-image"/></svg></div>
+          <div class="body"><div class="text"><h3>Croque madame</h3><p>Breakfast · France</p></div></div></article>
+        <article class="card"><div class="media flagged"><span class="flag" role="img" aria-label="Flag of Switzerland"><i style="background:#DA291C"></i><span class="bar" style="width:25px;height:8px"></span><span class="bar" style="width:8px;height:25px"></span></span></div>
+          <div class="body"><div class="text"><h3>Bircher muesli</h3><p>Breakfast · Switzerland</p></div></div></article>
+        <article class="card"><div class="media flagged"><span class="flag col" role="img" aria-label="Flag of India"><i style="background:#FF9933"></i><i style="background:#F4F5F0"></i><i style="background:#138808"></i><span class="dot" style="width:12px;height:12px;border:1.5px solid #000080"></span></span></div>
+          <div class="body"><div class="text"><h3>Chana masala</h3><p>Dinner · India</p></div></div></article>
+      </div>
+      <div class="edge-fade edge-fade-top" aria-hidden="true"></div><div class="edge-fade edge-fade-bottom" aria-hidden="true"></div></div>
+    </div>
+    <button class="fab" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button>
+  </div></section>
+
+  <!-- 2. HOME — by cuisine -->
+  <section class="frame"><h2>02 Home — by cuisine</h2>
+  <div class="phone" id="home-cuisine">
+    <div class="home">
+      <header class="app-header">
+        <div class="wordmark">Pinch</div>
+        <button class="icon-btn" aria-label="Settings"><svg class="i" style="width:22px;height:22px;stroke-width:1.7"><use href="#i-gear"/></svg></button>
+      </header>
+      <div class="filters">
+        <div class="seg" role="group" aria-label="Group recipes">
+          <button aria-pressed="false">By meal</button><button aria-pressed="true">By cuisine</button>
+        </div>
+        <div class="chips">
+          <button class="chip" aria-pressed="false">All</button>
+          <button class="chip" aria-pressed="true"><span class="flag sm"><i style="background:#009246"></i><i style="background:#F4F5F0"></i><i style="background:#CE2B37"></i></span>Italy</button>
+          <button class="chip" aria-pressed="false"><span class="flag sm"><i style="background:#F4F5F0"></i><span class="dot" style="width:8px;height:8px;background:#BC002D"></span></span>Japan</button>
+          <button class="chip" aria-pressed="false"><span class="flag sm col"><i style="background:#FF9933"></i><i style="background:#F4F5F0"></i><i style="background:#138808"></i></span>India</button>
+        </div>
+      </div>
+      <div class="scroll"><div class="grid">
+        <article class="card"><div class="media photo"><svg class="i" style="width:26px;height:26px;stroke-width:1.6"><use href="#i-image"/></svg></div>
+          <div class="body"><div class="text"><h3>Spaghetti carbonara</h3><p>Dinner · Italy</p></div></div></article>
+        <article class="card"><div class="media flagged"><span class="flag" role="img" aria-label="Flag of Italy"><i style="background:#009246"></i><i style="background:#F4F5F0"></i><i style="background:#CE2B37"></i></span></div>
+          <div class="body"><div class="text"><h3>Risotto alla milanese</h3><p>Dinner · Italy</p></div></div></article>
+      </div>
+      <div class="edge-fade edge-fade-top" aria-hidden="true"></div><div class="edge-fade edge-fade-bottom" aria-hidden="true"></div></div>
+    </div>
+    <button class="fab" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button>
+  </div></section>
+
+  <!-- 3. RECIPE SHEET — INGREDIENTS -->
+  <section class="frame"><h2>03 Recipe sheet — Ingredients</h2>
+  <div class="phone" id="sheet-ingredients">
+    <div class="ghost" aria-hidden="true"><div class="wordmark">Pinch</div><div class="g-seg"></div><div class="g-grid"><div></div><div></div><div></div><div></div></div></div>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="sheet-wrap">
+      <div class="sheet" role="dialog" aria-label="Spaghetti carbonara">
+        <div class="hero">
+          <div class="ph" aria-hidden="true"><svg class="i"><use href="#i-image"/></svg></div>
+          <div class="fade" aria-hidden="true"></div>
+          <div class="tags">Dinner · Italy</div>
+          <button class="icon-btn close" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+          <div class="title-row">
+            <button class="icon-btn edit" aria-label="Edit recipe"><svg class="i"><use href="#i-pencil"/></svg></button>
+            <h2>Spaghetti carbonara</h2>
+          </div>
+        </div>
+        <div class="sheet-body">
+          <div class="scaler">
+            <div><div class="lbl">Serves</div><div class="val"><small>recipe serves 4</small></div></div>
+            <div class="ctrl">
+              <button class="icon-btn" aria-label="Fewer servings"><svg class="i"><use href="#i-minus"/></svg></button>
+              <span class="mult" aria-live="polite">6</span>
+              <button class="icon-btn" aria-label="More servings"><svg class="i"><use href="#i-plus"/></svg></button>
+            </div>
+          </div>
+          <div class="seg" role="tablist"><button role="tab" aria-pressed="true" aria-selected="true">Ingredients</button><button role="tab" aria-pressed="false" aria-selected="false">Method</button></div>
+          <ul class="ings">
+            <li>Spaghetti<b>600 g</b></li><li>Guanciale<b>225 g</b></li><li>Egg yolks<b>6</b></li><li>Whole eggs<b>3</b></li>
+            <li>Pecorino Romano<b>90 g</b></li><li>Parmigiano Reggiano<b>45 g</b></li><li>Black pepper<b>1 tbsp</b></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div></section>
+
+  <!-- 4. RECIPE SHEET — METHOD -->
+  <section class="frame"><h2>04 Recipe sheet — Method (after flip)</h2>
+  <div class="phone" id="sheet-method">
+    <div class="ghost" aria-hidden="true"><div class="wordmark">Pinch</div><div class="g-seg"></div><div class="g-grid"><div></div><div></div><div></div><div></div></div></div>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="sheet-wrap">
+      <div class="sheet" role="dialog" aria-label="Spaghetti carbonara">
+        <div class="hero">
+          <div class="ph" aria-hidden="true"><svg class="i"><use href="#i-image"/></svg></div>
+          <div class="fade" aria-hidden="true"></div>
+          <div class="tags">Dinner · Italy</div>
+          <button class="icon-btn close" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+          <div class="title-row">
+            <button class="icon-btn edit" aria-label="Edit recipe"><svg class="i"><use href="#i-pencil"/></svg></button>
+            <h2>Spaghetti carbonara</h2>
+          </div>
+        </div>
+        <div class="sheet-body">
+          <div class="scaler">
+            <div><div class="lbl">Serves</div><div class="val"><small>recipe serves 4</small></div></div>
+            <div class="ctrl">
+              <button class="icon-btn" aria-label="Fewer servings"><svg class="i"><use href="#i-minus"/></svg></button>
+              <span class="mult" aria-live="polite">6</span>
+              <button class="icon-btn" aria-label="More servings"><svg class="i"><use href="#i-plus"/></svg></button>
+            </div>
+          </div>
+          <div class="seg" role="tablist"><button role="tab" aria-pressed="false" aria-selected="false">Ingredients</button><button role="tab" aria-pressed="true" aria-selected="true">Method</button></div>
+          <ol class="steps">
+            <li><span class="n" aria-hidden="true">1</span><div><p>Cut the guanciale into strips and render slowly in a cold pan until crisp.</p><p class="tagged">Guanciale 225 g</p></div></li>
+            <li><span class="n" aria-hidden="true">2</span><div><p>Whisk the yolks and eggs with most of the cheese and plenty of pepper.</p><p class="tagged">Egg yolks 6 · Whole eggs 3 · Pecorino Romano 90 g · Black pepper 1 tbsp</p></div></li>
+            <li><span class="n" aria-hidden="true">3</span><div><p>Boil the spaghetti in well-salted water until just shy of al dente.</p><p class="tagged">Spaghetti 600 g</p></div></li>
+            <li><span class="n" aria-hidden="true">4</span><div><p>Off the heat, toss with the guanciale, then the egg mix, loosening with pasta water. Finish with Parmigiano.</p><p class="tagged">Parmigiano Reggiano 45 g</p></div></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div></section>
+
+  <!-- 5. ADD RECIPE — enter ingredients -->
+  <section class="frame"><h2>05 Add recipe — enter ingredients</h2>
+  <div class="phone" id="add-recipe">
+    <div class="ghost" aria-hidden="true"><div class="wordmark">Pinch</div></div>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="bottom-sheet" role="dialog" aria-label="New recipe">
+      <div class="grabber" aria-hidden="true"></div>
+      <div class="bs-head"><h2>New recipe</h2><button class="icon-btn" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+      <div class="two">
+        <button class="option" aria-pressed="true"><svg class="i"><use href="#i-list-plus"/></svg><b>Enter ingredients</b><span>Scan or type</span></button>
+        <button class="option" aria-pressed="false"><svg class="i"><use href="#i-globe"/></svg><b>Import from web</b><span>Paste a link or text</span></button>
+      </div>
+      <div class="field"><label for="rn">Recipe name</label><input id="rn" class="input" placeholder="e.g. Chana masala"></div>
+      <div class="two">
+        <div class="field"><span class="label">Serves</span>
+          <div class="stepper"><button class="icon-btn" aria-label="Fewer servings"><svg class="i"><use href="#i-minus"/></svg></button><b>4</b><button class="icon-btn" aria-label="More servings"><svg class="i"><use href="#i-plus"/></svg></button></div></div>
+        <div class="field"><span class="label">Cuisine</span>
+          <button class="input select"><span class="flag sm col"><i style="background:#FF9933"></i><i style="background:#F4F5F0"></i><i style="background:#138808"></i></span><span>India</span><svg class="i"><use href="#i-chevron"/></svg></button></div>
+      </div>
+      <div class="field"><span class="label">Meal</span>
+        <div class="three"><button class="meal" aria-pressed="false">Breakfast</button><button class="meal" aria-pressed="false">Lunch</button><button class="meal" aria-pressed="true">Dinner</button></div></div>
+      <button class="photo-drop"><svg class="i"><use href="#i-image"/></svg><span><b>Add a photo</b><span>Optional · the flag is used if you skip this</span></span></button>
+      <div class="field">
+        <div style="display:flex;justify-content:space-between"><span class="label">Ingredients</span><span class="hint">1 added</span></div>
+        <div class="two"><button class="btn primary"><svg class="i"><use href="#i-barcode"/></svg>Scan barcode</button><button class="btn secondary">Add manually</button></div>
+        <div class="row-item">Chickpeas, tinned<b>2 × 400 g</b></div>
+      </div>
+    </div>
+  </div></section>
+
+  <!-- 6. ADD RECIPE — import from web (not drawn on the canvas; follows the same system) -->
+  <section class="frame"><h2>06 Add recipe — import from web</h2>
+  <div class="phone" id="add-import">
+    <div class="ghost" aria-hidden="true"><div class="wordmark">Pinch</div></div>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="bottom-sheet" role="dialog" aria-label="New recipe">
+      <div class="grabber" aria-hidden="true"></div>
+      <div class="bs-head"><h2>New recipe</h2><button class="icon-btn" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+      <div class="two">
+        <button class="option" aria-pressed="false"><svg class="i"><use href="#i-list-plus"/></svg><b>Enter ingredients</b><span>Scan or type</span></button>
+        <button class="option" aria-pressed="true"><svg class="i"><use href="#i-globe"/></svg><b>Import from web</b><span>Paste a link or text</span></button>
+      </div>
+      <div class="field"><label for="paste">Link or recipe text</label>
+        <textarea id="paste" class="paste" placeholder="Paste a link to a recipe, or the whole recipe — title, ingredients and method. Pinch will split it into ingredients and steps for you to check."></textarea></div>
+      <div class="two">
+        <div class="field"><span class="label">Serves</span>
+          <div class="stepper"><button class="icon-btn" aria-label="Fewer servings"><svg class="i"><use href="#i-minus"/></svg></button><b>4</b><button class="icon-btn" aria-label="More servings"><svg class="i"><use href="#i-plus"/></svg></button></div></div>
+        <div class="field"><span class="label">Meal</span>
+          <button class="input select"><span>Dinner</span><svg class="i"><use href="#i-chevron"/></svg></button></div>
+      </div>
+      <button class="btn primary" style="margin-top:auto;height:52px;font-size:15px">Read recipe</button>
+    </div>
+  </div></section>
+
+</div>
+<script>
+  var fr = document.documentElement.getAttribute('data-frame');
+  if (fr) document.querySelectorAll('.frame').forEach(function (el) { if (el.querySelector('h2').textContent.indexOf(fr + ' ') === 0) el.classList.add('on'); });
+</script>
+</body>
+</html>
