@@ -2,14 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pinch</title>
+<meta name="description" content="Your household's recipes, in one place.">
 
-<!-- Runs before any CSS paints, so ?theme=dark never flashes light first. -->
+<!-- Runs before any CSS paints, so a dark theme never flashes light first. -->
 <script src="js/theme-param.js"></script>
 
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/home.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/splash.css">
 
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
@@ -17,11 +21,52 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#F4F5F1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pinch">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <!-- The one entry point. Modules are deferred: this runs after the HTML is parsed. -->
 <script type="module" src="js/app.js"></script>
 </head>
 <body>
-<main id="home"></main>
+
+<!-- The splash (design/splash.html): plays once per launch; app.js removes it. -->
+<div id="splash" class="splash" role="img" aria-label="Pinch is loading">
+  <div class="stage" aria-hidden="true">
+    <div class="shaker salt">
+      <svg width="42" height="108" viewBox="0 0 42 108">
+        <rect x="2" y="0" width="38" height="32" rx="16" style="fill:var(--brand-salt)"/>
+        <rect x="0" y="22" width="42" height="86" rx="12" style="fill:var(--brand-salt)"/>
+        <rect x="0" y="22" width="42" height="6" style="fill:var(--brand-green)"/>
+        <circle cx="12" cy="13" r="2.8" style="fill:var(--brand-green)"/><circle cx="21" cy="8" r="2.8" style="fill:var(--brand-green)"/><circle cx="30" cy="13" r="2.8" style="fill:var(--brand-green)"/>
+      </svg>
+    </div>
+    <div class="shaker pepper">
+      <svg width="42" height="108" viewBox="0 0 42 108">
+        <rect x="2" y="0" width="38" height="32" rx="16" style="fill:var(--brand-pepper)"/>
+        <rect x="0" y="22" width="42" height="86" rx="12" style="fill:var(--brand-pepper)"/>
+        <rect x="0" y="22" width="42" height="6" style="fill:var(--brand-green)"/>
+        <circle cx="16" cy="11" r="2.8" style="fill:var(--brand-green)"/><circle cx="26" cy="11" r="2.8" style="fill:var(--brand-green)"/>
+      </svg>
+    </div>
+    <i class="grain s lg" style="left:100px;top:62px;animation-delay:0s"></i>
+    <i class="grain s" style="left:108px;top:58px;animation-delay:.12s"></i>
+    <i class="grain s" style="left:96px;top:66px;animation-delay:.26s"></i>
+    <i class="grain s lg" style="left:104px;top:60px;animation-delay:.4s"></i>
+    <i class="grain p lg" style="left:136px;top:62px;animation-delay:.06s"></i>
+    <i class="grain p" style="left:128px;top:58px;animation-delay:.2s"></i>
+    <i class="grain p" style="left:140px;top:66px;animation-delay:.32s"></i>
+    <i class="grain p lg" style="left:132px;top:60px;animation-delay:.46s"></i>
+  </div>
+  <div class="word">Pinch</div>
+  <div class="track" aria-hidden="true"><div class="bar"></div></div>
+</div>
+
+<div id="app">
+  <main id="home" class="home" hidden></main>
+  <main id="signin" hidden></main>
+</div>
+<div id="layers"></div>
+<noscript><p style="padding:24px">Pinch needs JavaScript.</p></noscript>
 </body>
 </html>

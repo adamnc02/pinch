@@ -1,0 +1,43 @@
+/* The splash (design-handoff/design/splash.html, final). 4.2 s: the shakers
+   rise, tip towards each other and shake out salt and pepper, settle, then
+   "Pinch" fades in above a thin loading bar. app.js dismisses it when the
+   data is ready, no sooner than 2.8 s. Reduced motion shows a still frame. */
+.splash {
+  --splash-dur: 4.2s;
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--brand-green);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  transition: opacity .35s ease;
+}
+.splash.gone { opacity: 0; pointer-events: none; }
+.splash .stage { position: relative; width: 240px; height: 190px; animation: splash-rise var(--splash-dur) ease-out 1 both; }
+.splash .shaker { position: absolute; top: 40px; width: 42px; height: 108px; transform-origin: 50% 100%; }
+.splash .shaker svg { display: block; }
+.splash .salt { left: 28px; animation: splash-salt var(--splash-dur) cubic-bezier(.4, 0, .2, 1) 1 both; }
+.splash .pepper { left: 170px; animation: splash-pepper var(--splash-dur) cubic-bezier(.4, 0, .2, 1) 1 both; }
+.splash .grain { position: absolute; width: 4px; height: 4px; opacity: 0; animation: splash-fall var(--splash-dur) cubic-bezier(.5, 0, .9, .6) 1 both; }
+.splash .grain.s { background: var(--brand-salt); border-radius: 1px; }
+.splash .grain.p { background: var(--brand-pepper); border-radius: 50%; }
+.splash .grain.lg { width: 5px; height: 5px; }
+.splash .word { font-weight: 700; letter-spacing: -0.03em; font-size: 44px; line-height: 1; color: var(--brand-salt);
+                opacity: 0; animation: splash-word var(--splash-dur) ease-out 1 both; }
+.splash .track { width: 120px; height: 3px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--brand-salt) 22%, transparent); }
+.splash .bar { height: 100%; width: 0; border-radius: 2px; background: var(--brand-salt); animation: splash-load var(--splash-dur) ease-in-out 1 both; }
+
+/* The design's keyframes fade everything out at the very end; in the app the
+   splash is removed by app.js instead, so they hold at full opacity. */
+@keyframes splash-rise   { 0% { opacity: 0; transform: translateY(18px); } 12%, 100% { opacity: 1; transform: none; } }
+@keyframes splash-salt   { 0%, 16% { transform: rotate(0); } 26% { transform: rotate(26deg); } 31% { transform: rotate(20deg); } 36% { transform: rotate(27deg); }
+                           41% { transform: rotate(20deg); } 46% { transform: rotate(26deg); } 56%, 100% { transform: rotate(0); } }
+@keyframes splash-pepper { 0%, 16% { transform: rotate(0); } 26% { transform: rotate(-26deg); } 31% { transform: rotate(-20deg); } 36% { transform: rotate(-27deg); }
+                           41% { transform: rotate(-20deg); } 46% { transform: rotate(-26deg); } 56%, 100% { transform: rotate(0); } }
+@keyframes splash-fall   { 0%, 27% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 52% { opacity: 1; } 62%, 100% { opacity: 0; transform: translateY(104px); } }
+@keyframes splash-word   { 0%, 54% { opacity: 0; transform: translateY(10px); } 66%, 100% { opacity: 1; transform: none; } }
+@keyframes splash-load   { 0%, 10% { width: 0; } 90%, 100% { width: 100%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash .stage, .splash .shaker, .splash .grain, .splash .bar { animation: none; }
+  .splash .stage { opacity: 1; }
+  .splash .word { animation: none; opacity: 1; }
+  .splash .bar { width: 60%; }
+}
