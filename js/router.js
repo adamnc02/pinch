@@ -21,7 +21,12 @@ export function navigate(hash, { replace = false } = {}) {
 
 // Closing the recipe sheet: step back if we came from Home in this tab, so
 // the back button doesn't reopen it; otherwise (a deep link) replace.
+// Idempotent: a second call before the first back() lands does nothing, so
+// a recipe deleted from its own sheet never steps back out of Pinch.
+let leaving = false;
 export function leaveRecipe() {
+  if (leaving || currentRoute().view !== 'recipe') return;
+  leaving = true;
   if (history.state?.pinchFromHome) history.back();
   else navigate('#/', { replace: true });
 }
@@ -31,7 +36,7 @@ export function openRecipe(id) {
   emit();
 }
 
-const emit = () => listeners.forEach((fn) => fn(currentRoute()));
+const emit = () => { leaving = false; listeners.forEach((fn) => fn(currentRoute())); };
 export function onRoute(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 addEventListener('hashchange', emit);
 addEventListener('popstate', emit);

@@ -9,7 +9,7 @@ import { toast } from '../components/toast.js';
 import * as state from '../state.js';
 import { trimNumber } from '../lib/format.js';
 
-export function openProductForm({ initial = {}, onSaved, title = 'New product' }) {
+export function openProductForm({ initial = {}, onSaved, onClose, title = 'New product' }) {
   const p = { name: '', brand: '', barcode: '', basis: '100g', kcal: null, protein: null, carbs: null, fat: null, gramsPerItem: null, source: 'label', ...initial };
   const text = (v) => (v == null ? '' : trimNumber(Number(v), 2));
   const vals = { kcal: text(p.kcal), protein: text(p.protein), carbs: text(p.carbs), fat: text(p.fat), gramsPerItem: text(p.gramsPerItem) };
@@ -17,7 +17,7 @@ export function openProductForm({ initial = {}, onSaved, title = 'New product' }
   let busy = false;
 
   const body = h('div', { class: 'product' });
-  const sheet = openSheet(body, { kind: 'bottom', label: title });
+  const sheet = openSheet(body, { kind: 'bottom', label: title, onClose });
 
   const input = (key, attrs = {}) => h('input', { class: 'input', value: p[key] ?? '', oninput: (e) => { p[key] = e.target.value; }, ...attrs });
   const macro = (key, label, unit) => h('div', { class: 'field' }, h('label', { for: `m-${key}` }, label),

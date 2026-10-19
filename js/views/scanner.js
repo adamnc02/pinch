@@ -73,6 +73,8 @@ export function openScanner({ forName = null, onProduct }) {
   let running = false;
   let paused = false;
   let torch = false;
+  const failed = new Set();   // codes already looked up and not usable: never re-looked-up in this scan
+  const resume = () => { paused = false; };
   const video = h('video', { class: 'camera-video', playsinline: true, muted: true, autoplay: true });
   video.muted = true;
   video.setAttribute('playsinline', '');
@@ -111,7 +113,7 @@ export function openScanner({ forName = null, onProduct }) {
       if (!running) return;
       if (!paused && video.readyState >= 2 && video.videoWidth) {
         const code = await detect(video).catch(() => null);
-        if (code && /^\d{6,14}$/.test(code)) { paused = true; found(code); }
+        if (code && /^\d{6,14}$/.test(code) && !failed.has(code)) { paused = true; found(code); }
       }
       if (running) setTimeout(loop, 120);
     };
@@ -157,6 +159,7 @@ export function openScanner({ forName = null, onProduct }) {
     openProductForm({
       initial: { name: forName ?? '' },
       onSaved: (p) => { sheet.close({ force: true }); onProduct(p); },
+      onClose: resume,
     });
   }
 
@@ -169,13 +172,14 @@ export function openScanner({ forName = null, onProduct }) {
       const res = mapOffProduct(await fetchOff(offUrl(code)), code);
       if (!res.ok) {
         clear(say, 'Not found on Open Food Facts', h('span', {}, 'Enter it from the label instead'));
-        openProductForm({ initial: { name: forName ?? '', barcode: code }, onSaved: (p) => { sheet.close({ force: true }); onProduct(p); } });
-        paused = false;
+        failed.add(code);
+        openProductForm({ initial: { name: forName ?? '', barcode: code }, onSaved: (p) => { sheet.close({ force: true }); onProduct(p); }, onClose: resume });
         return;
       }
       showResult({ product: res.product, source: 'off', missing: res.missing, sizeLabel: res.sizeLabel });
     } catch {
       clear(say, 'Couldn’t reach Open Food Facts', h('span', {}, 'Check the connection, or enter it from the label'));
+      failed.add(code);
       paused = false;
     }
   }
@@ -203,7 +207,7 @@ export function openScanner({ forName = null, onProduct }) {
     function edit() {
       r.close({ force: true });
       paused = true;
-      openProductForm({ initial: product, title: source === 'mine' ? 'Edit product' : 'New product', onSaved: (p) => { sheet.close({ force: true }); onProduct(p); } });
+      openProductForm({ initial: product, title: source === 'mine' ? 'Edit product' : 'New product', onSaved: (p) => { sheet.close({ force: true }); onProduct(p); }, onClose: resume });
     }
     async function use() {
       try {

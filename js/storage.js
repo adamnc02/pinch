@@ -101,7 +101,13 @@ export function cachedData(userId) {
     return null;
   }
 }
-export function clearCache() { try { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(URL_KEY); } catch { /* */ } }
+// On sign-out: the offline copy, the remembered photo URLs, and the service
+// worker's cached photos, so the next person on this phone sees none of them.
+export function clearCache() {
+  try { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(URL_KEY); } catch { /* */ }
+  urls = null;
+  globalThis.caches?.delete('pinch-runtime-v1').catch(() => {});
+}
 
 // Fresh nutrition for some recipes, after a save or a product change.
 export async function loadNutrition(recipeIds) {
@@ -126,9 +132,11 @@ export async function saveRecipe(recipe, householdId) {
 
 export async function deleteRecipe(recipe) {
   if (isDemo) return demoDelete('recipes', recipe.id);
-  must(await supabase.from('recipes').delete().eq('id', recipe.id), 'delete the recipe');
-  // Files are removed through the Storage API only (MIGRATION-LESSONS §70).
+  // The photo goes first, through the Storage API (MIGRATION-LESSONS §70):
+  // for a recipe that moved household, the row naming the file is what lets
+  // this household delete it, so once the row is gone the file couldn't be.
   if (recipe.photoPath) await supabase.storage.from(PHOTO_BUCKET).remove([recipe.photoPath]);
+  must(await supabase.from('recipes').delete().eq('id', recipe.id), 'delete the recipe');
 }
 
 // ── products ──────────────────────────────────────────────────────────────

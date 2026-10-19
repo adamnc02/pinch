@@ -59,14 +59,21 @@ export function matchProduct(name) {
 }
 
 // ── actions ───────────────────────────────────────────────────────────────
+// Each start() or reset() bumps this; a load that finishes after a newer one
+// began (a sign-out, or another account signing in) is thrown away.
+let generation = 0;
+
 export async function start(user) {
+  const mine = ++generation;
   const cached = user ? storage.cachedData(user.id) : null;
   set({ user, status: 'loading', error: null, ...(cached ?? {}) });
   try {
     const householdId = await storage.ensureHousehold();
     const data = await storage.loadAll(user?.id);
+    if (mine !== generation) return;
     set({ ...data, householdId, status: 'ready', error: null });
   } catch (e) {
+    if (mine !== generation) return;
     if (cached) set({ status: 'offline', error: e.message });
     else set({ status: 'error', error: e.message });
   }
@@ -75,6 +82,7 @@ export async function start(user) {
 export const reload = () => start(state.user);
 
 export function reset() {
+  generation += 1;
   set({ user: null, householdId: null, recipes: [], products: [], nutrition: {}, ingredientStatus: {}, status: 'loading', error: null });
 }
 

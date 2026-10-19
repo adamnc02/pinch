@@ -127,7 +127,7 @@ data, and each writes through `storage.js` first:
 |---|---|
 | `start(user)` | shows the cached copy at once (if any), then `ensureHousehold()` + `loadAll()`. On failure with a cache: `status: 'offline'`; without: `'error'`. |
 | `saveRecipe(recipe)` | `save_recipe`, then refreshes that recipe's nutrition from the views |
-| `deleteRecipe(id)` | deletes the row, then the photo through the Storage API |
+| `deleteRecipe(id)` | removes the photo through the Storage API, then deletes the row (in that order: for a recipe that moved household, the row naming the file is what lets this household delete it) |
 | `saveProduct(p)` / `deleteProduct(id)` | upsert / delete, then refresh nutrition for every recipe using it |
 
 Lookups: `getRecipe`, `getProduct`, `productByBarcode`, `searchProducts(text)` (every word must
@@ -168,7 +168,7 @@ Hash routes, so back, forward, refresh and deep links work on GitHub Pages:
 | `#/recipe/<uuid>` | Home with that recipe's sheet open |
 
 Tapping a card calls `openRecipe(id)`, which `pushState`s `{ pinchFromHome: true }`. Closing the sheet
-calls `leaveRecipe()`: `history.back()` when Home pushed it, otherwise (a deep link) a `replaceState`
+calls `leaveRecipe()` (idempotent until the next route change): `history.back()` when Home pushed it, otherwise (a deep link) a `replaceState`
 to `#/`, so Back never reopens a closed recipe. An unknown id shows "That recipe isn't in your
 household" and goes Home. Add recipe and Settings are not routed.
 
@@ -184,7 +184,8 @@ household" and goes Home. Add recipe and Settings are not routed.
 close the top sheet**, focus returns to the opener. Sheets **stack**: opening one makes the one below
 `inert` and hidden until the top closes, so a sub-screen's Back returns exactly where the cook was
 (the scan result keeps the camera visible below it). `beforeClose()` can refuse — the editor uses it
-for "Discard changes?". `confirmSheet()` is a small centred yes/no; `sheetHead()` is the
+for "Discard changes?" and to stay open while a save or import is in flight; Check ingredients opened
+from a saved recipe asks before discarding its changes. `confirmSheet()` is a small centred yes/no; `sheetHead()` is the
 Back / title / Close row.
 
 ## 9. Home
@@ -229,7 +230,8 @@ The sheet re-renders when state or prefs change, and closes itself if the recipe
 - **Photo:** chosen with a file input, resized on the device (`components/photo.js`: longest side
   1600 px, JPEG 0.82), previewed, and uploaded only on Save to
   `pinch-photos/<household_id>/<recipe_id>-<suffix>.jpg`. Replacing or removing it deletes the old
-  file after the save succeeds.
+  file just before the save, for the same reason as `deleteRecipe`; an uploaded file is reused if the
+  save is retried.
 - **Ingredients:** Scan barcode or Add manually; each row opens Add ingredient to edit or delete.
   "needs nutrition" marks rows without a product, and "Check ingredients · N need nutrition" opens
   §14 on the draft.
@@ -262,7 +264,9 @@ Photos and Open Food Facts images are never stored as products; a product has no
   and the scan line. The torch toggle shows only when the track reports `torch`.
 - Detection: `BarcodeDetector` with EAN-13/8, UPC-A/E, Code 128 and ITF where available; otherwise
   ZXing's `MultiFormatReader` on a canvas frame, loaded the first time it's needed. Every 120 ms
-  until a 6–14 digit code is found.
+  until a 6–14 digit code is found. A code that wasn't found, or couldn't be looked up, is not
+  looked up again in the same scan; the camera pauses while a form is open over it and resumes when
+  it closes.
 - **Lookup order:** the household's own products first (labelled "In your products", no network
   call), then Open Food Facts v2 (`lib/off.js`, `mapOffProduct`). OFF data is shown "Check against
   the label" with Edit details / Use product; a product missing kcal (or any macro) can't be used
@@ -315,7 +319,8 @@ daily cap; otherwise the person's own key from Settings (§6). See `pinch-SUPABA
 
 - **Household:** how many people share it; the household code (`create_household_link_code()`
   returns the existing one — the same code as Listly and Shared Ledger) with Copy; Join a household
-  (`redeem_household_link_code()`, then a reload); Sign out (also clears the offline cache).
+  (`redeem_household_link_code()`, then a reload); Sign out (also clears the offline cache, the remembered photo URLs and the service worker's cached
+  photos).
 - **Appearance:** System / Light / Dark.
 - **Show amounts as:** As written / Metric / Cups, and Cup size: Metric 250 ml / US 237 ml.
 - **Import from web:** "Household key active" when the function says so; otherwise the personal key

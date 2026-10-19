@@ -16,7 +16,7 @@
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
-import { openSheet, sheetHead } from '../components/sheet.js';
+import { openSheet, sheetHead, confirmSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import * as state from '../state.js';
 import { amountOpts } from '../prefs.js';
@@ -32,9 +32,20 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
   const skipped = new Set();
   let open = null;
   let busy = false;
+  let dirty = false;
+  let finished = false;
 
   const body = h('div', { class: 'check' });
-  const sheet = openSheet(body, { kind: 'bottom', label: 'Check ingredients' });
+  // From the editor every change already reached its draft (onChange). From a
+  // saved recipe (saveOnFinish) changes exist only here until the save.
+  const sheet = openSheet(body, {
+    kind: 'bottom', label: 'Check ingredients',
+    beforeClose: async () => {
+      if (busy) return false;
+      if (!saveOnFinish || !dirty || finished) return true;
+      return confirmSheet({ title: 'Discard changes?', body: 'Your changes to these ingredients haven\u2019t been saved.', confirm: 'Discard', danger: true });
+    },
+  });
 
   const product = (i) => state.getProduct(i.productId);
   const status = (i) => nutritionStatus(i, product(i), state.densityForIngredient(i));
@@ -43,6 +54,7 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
 
   function update(next) {
     draft = next;
+    dirty = true;
     onChange?.(draft);
     render();
   }
@@ -136,7 +148,8 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
     const others = opts.filter((o) => o.unit !== i.unit);
     const parts = others.map((o) => {
       if (!o.ok) return h('span', {}, `${o.unit}: ${o.reason.toLowerCase()}`);
-      const r = convert(i.qty, i.unit, o.unit, { density, cup: amountOpts().cup });
+      // A stored cup is a metric cup, so the line says what the switch would store.
+      const r = convert(i.qty, i.unit, o.unit, { density, cup: 'metric' });
       if (r.error) return null;
       const text = formatAmount(r.qty, o.unit);
       const exact = o.unit === 'g' || i.unit === 'g' || i.unit === 'kg' ? 'about' : 'Same as';
@@ -182,6 +195,7 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
       try {
         await state.saveRecipe({ ...draft, ingredients: draft.ingredients.map(({ sourceLine, itemGrams, ...x }) => x) });
         toast('Saved');
+        finished = true;
       } catch (e) {
         busy = false; render();
         toast(e.message, { error: true });

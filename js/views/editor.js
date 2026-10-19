@@ -36,6 +36,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   let mode = original ? 'enter' : 'enter';
   let editingStep = null;
   let photoBlob = null;        // a new photo, uploaded on save
+  let uploadedPath = null;     // its path once uploaded, so a retried save doesn't upload it again
   let photoPreview = null;
   let removePhoto = false;
   let busy = false;
@@ -46,7 +47,12 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   const body = h('div', { class: 'editor' });
   const sheet = openSheet(body, {
     kind: 'bottom', label: original ? 'Edit recipe' : 'New recipe',
-    beforeClose: async () => !isDirty() || busy || confirmSheet({ title: 'Discard changes?', body: 'This recipe hasn’t been saved.', confirm: 'Discard', danger: true }),
+    // While a save or an import is in flight the sheet stays open: closing
+    // would drop the draft, or leave an import landing on a dead editor.
+    beforeClose: async () => {
+      if (busy) { toast('Still working \u2014 one moment'); return false; }
+      return !isDirty() || confirmSheet({ title: 'Discard changes?', body: 'This recipe hasn\u2019t been saved.', confirm: 'Discard', danger: true });
+    },
   });
 
   // ── rendering ────────────────────────────────────────────────────────────
@@ -127,6 +133,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     if (!file) return;
     try {
       photoBlob = await resizePhoto(file);
+      uploadedPath = null;
       photoPreview = URL.createObjectURL(photoBlob);
       removePhoto = false;
       render();
@@ -332,10 +339,12 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     const oldPhoto = original?.photoPath ?? null;
     try {
       const clean = { ...draft, ingredients: draft.ingredients.map(({ sourceLine, itemGrams, ...i }) => i) };
-      if (photoBlob) clean.photoPath = await storage.uploadPhoto(photoBlob, state.get().householdId, clean.id);
+      if (photoBlob) clean.photoPath = uploadedPath ??= await storage.uploadPhoto(photoBlob, state.get().householdId, clean.id);
       else if (removePhoto) clean.photoPath = null;
-      await state.saveRecipe(clean);
+      // The old file goes BEFORE the save: for a recipe that moved household,
+      // only the recipe still naming it lets the new household delete it.
       if (oldPhoto && oldPhoto !== clean.photoPath) await storage.removePhoto(oldPhoto);
+      await state.saveRecipe(clean);
       busy = false;
       await sheet.close({ force: true });
       toast(original ? 'Saved' : 'Recipe added');

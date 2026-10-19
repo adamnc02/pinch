@@ -57,7 +57,8 @@ function showRoute(route) {
     return;
   }
   recipeSheet = openRecipeSheet(route.id, {
-    onEdit: (id) => openEditor({ recipeId: id, onDeleted: () => leaveRecipe() }),
+    // A deleted recipe's sheet closes itself (it watches state), which leaves the route.
+    onEdit: (id) => openEditor({ recipeId: id }),
     onCheck: (id) => openCheckIngredients({ recipe: state.getRecipe(id), saveOnFinish: true, finishLabel: 'Save recipe' }),
     onClose: () => {
       recipeSheet = null;
