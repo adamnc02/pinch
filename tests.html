@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinch tests</title>
+<script src="js/theme-param.js"></script>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { padding: 24px 20px 48px; max-width: 720px; margin: 0 auto; height: auto; }
+  h1 { margin: 0 0 12px; font-weight: var(--display-weight); letter-spacing: var(--display-tracking); font-size: var(--fs-sheet-title); }
+  #summary { padding: 12px 16px; border-radius: var(--r-input); background: var(--sunk); font-weight: 700; }
+  #summary.good { background: var(--soft); color: var(--accent); }
+  #summary.bad { background: #F9E3E1; color: #8A1F17; }
+  :root[data-theme="dark"] #summary.bad { background: #3A1C1A; color: #F2B8B2; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #summary.bad { background: #3A1C1A; color: #F2B8B2; } }
+  h2 { margin: 24px 0 6px; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .mark { display: inline-block; width: 48px; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+  .pass .mark { color: var(--accent); }
+  .fail .mark { color: #C0392B; }
+  .todo .mark { color: var(--muted); }
+  pre { margin: 6px 0 0 48px; white-space: pre-wrap; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>Pinch tests</h1>
+<div id="summary">Loading. If this stays, a test file failed to load: check the console.</div>
+<div id="results"></div>
+
+<script type="module">
+  import { run } from './tests/kit.js';
+
+  // Register test files here. Imports run before run() below, so every
+  // test is registered by the time it starts.
+  import './tests/kit.test.js';
+
+  run();
+</script>
+</body>
+</html>
