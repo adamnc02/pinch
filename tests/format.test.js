@@ -56,8 +56,10 @@ describe('formatAmount, display modes', () => {
     assertEqual(formatAmount(200, 'g', { mode: 'cups', density: 0.53 }), '≈ 1½ cups');
     assertEqual(formatAmount(200, 'g', { mode: 'cups' }), '200 g');
   });
-  test('cups: under ¼ cup keeps the written amount', () => {
+  test('cups: from ⅛ cup up it snaps (never below ¼); under ⅛ cup keeps the written amount', () => {
+    assertEqual(formatAmount(50, 'g', { mode: 'cups', density: 1.03 }), '≈ ¼ cup');
     assertEqual(formatAmount(30, 'ml', { mode: 'cups' }), '30 ml');
+    assertEqual(formatAmount(35, 'ml', { mode: 'cups' }), '≈ ¼ cup');
   });
   test('cups: US cup size converts a stored metric cup', () => {
     assertEqual(formatAmount(1, 'cup', { mode: 'cups', cup: 'us' }), '≈ 1 cup');
@@ -66,4 +68,18 @@ describe('formatAmount, display modes', () => {
   test('g ↔ ml never happens: metric leaves g alone', () => {
     assertEqual(formatAmount(200, 'g', { mode: 'metric', density: 1 }), '200 g');
   });
+});
+
+describe('formatAmount, original', () => {
+  test('exactly what was entered, no rounding for humans', () => {
+    assertEqual(formatAmount(122, 'g', { mode: 'original' }), '122 g');
+    assertEqual(formatAmount(1250, 'g', { mode: 'original' }), '1250 g');
+    assertEqual(formatAmount(1 / 3, 'tsp', { mode: 'original' }), '0.33 tsp');
+    assertEqual(formatAmount(4.5, 'each', { mode: 'original' }), '4.5');
+  });
+  test('a real quarter of a spoon or cup keeps its glyph, never "≈"', () => {
+    assertEqual(formatAmount(1.5, 'cup', { mode: 'original' }), '1½ cups');
+    assertEqual(formatAmount(0.75, 'tbsp', { mode: 'original' }), '¾ tbsp');
+  });
+  test('as written still rounds for humans', () => assertEqual(formatAmount(122, 'g'), '120 g'));
 });

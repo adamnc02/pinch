@@ -1,6 +1,6 @@
 // Grams per millilitre for common ingredients, keyed by lower-case name.
 // Used only for g/kg ↔ cup. 🚨 This is the same table as the pinch.densities
-// seed in silver-octo-invention (20261019120000 + 20261020120000);
+// seed in silver-octo-invention (20261019120000, 20261020120000, 20261020150000);
 // behaviour-pinch.mjs fails if the two disagree, because the app's display and
 // the SQL nutrition must convert a cup the same way. The app reads the live
 // table on load (which also holds densities looked up with Claude) and uses
@@ -23,26 +23,27 @@ export const DENSITIES = {
   'desiccated coconut': 0.34, 'double cream': 0.99, 'dried cranberries': 0.51, 'feta': 0.6,
   'flaked almonds': 0.38, 'flaxseed': 0.57, 'flour': 0.53, 'frozen peas': 0.6, 'ghee': 0.91,
   'golden syrup': 1.4, 'gram flour': 0.39, 'granola': 0.5, 'granulated sugar': 0.84, 'grapes': 0.64,
-  'grated cheese': 0.42, 'greek yoghurt': 1.06, 'green lentils': 0.8, 'ground almonds': 0.4,
-  'hazelnuts': 0.57, 'honey': 1.42, 'hummus': 1.03, 'icing sugar': 0.48, 'jam': 1.35, 'jasmine rice': 0.79,
-  'kale': 0.28, 'ketchup': 1.15, 'kidney beans': 0.7, 'lemon juice': 1.03, 'lentils': 0.81, 'lettuce': 0.2,
-  'lime juice': 1.03, 'linseed': 0.57, 'macaroni': 0.45, 'mango': 0.7, 'maple syrup': 1.32, 'mascarpone': 1,
-  'mashed banana': 0.95, 'mayonnaise': 0.92, 'milk': 1.03, 'mint': 0.07, 'mozzarella': 0.47, 'muesli': 0.45,
-  'muscovado sugar': 0.85, 'mushrooms': 0.3, 'oat milk': 1.03, 'oats': 0.36, 'oil': 0.92, 'olive oil': 0.91,
-  'orange juice': 1.04, 'orzo': 0.75, 'panko': 0.21, 'parmesan': 0.42, 'parsley': 0.12, 'passata': 1.03,
-  'pasta': 0.42, 'pasta sauce': 1.04, 'peanut butter': 1.08, 'peanuts': 0.6, 'pearl barley': 0.85,
-  'peas': 0.6, 'pecans': 0.42, 'pecorino': 0.42, 'peppers': 0.6, 'pesto': 1, 'pine nuts': 0.57,
-  'pineapple': 0.7, 'pistachios': 0.52, 'plain flour': 0.53, 'polenta': 0.68, 'potatoes': 0.63,
-  'protein powder': 0.4, 'pumpkin seeds': 0.55, 'puy lentils': 0.8, 'quark': 1, 'quinoa': 0.72,
-  'raisins': 0.63, 'rapeseed oil': 0.92, 'raspberries': 0.52, 'red lentils': 0.81, 'rice': 0.79,
-  'ricotta': 1.04, 'risotto rice': 0.84, 'rocket': 0.08, 'rolled oats': 0.36, 'rye flour': 0.43, 'salt': 1.2,
+  'grated cheese': 0.42, 'greek yoghurt': 1.06, 'greek yogurt': 1.06, 'green lentils': 0.8,
+  'ground almonds': 0.4, 'hazelnuts': 0.57, 'honey': 1.42, 'hummus': 1.03, 'icing sugar': 0.48, 'jam': 1.35,
+  'jasmine rice': 0.79, 'kale': 0.28, 'ketchup': 1.15, 'kidney beans': 0.7, 'lemon juice': 1.03,
+  'lentils': 0.81, 'lettuce': 0.2, 'lime juice': 1.03, 'linseed': 0.57, 'macaroni': 0.45, 'mango': 0.7,
+  'maple syrup': 1.32, 'mascarpone': 1, 'mashed banana': 0.95, 'mayonnaise': 0.92, 'milk': 1.03,
+  'mint': 0.07, 'mozzarella': 0.47, 'muesli': 0.45, 'muscovado sugar': 0.85, 'mushrooms': 0.3,
+  'nutella': 1.2, 'oat milk': 1.03, 'oats': 0.36, 'oil': 0.92, 'olive oil': 0.91, 'orange juice': 1.04,
+  'orzo': 0.75, 'panko': 0.21, 'parmesan': 0.42, 'parsley': 0.12, 'passata': 1.03, 'pasta': 0.42,
+  'pasta sauce': 1.04, 'peanut butter': 1.08, 'peanuts': 0.6, 'pearl barley': 0.85, 'peas': 0.6,
+  'pecans': 0.42, 'pecorino': 0.42, 'peppers': 0.6, 'pesto': 1, 'pine nuts': 0.57, 'pineapple': 0.7,
+  'pistachios': 0.52, 'plain flour': 0.53, 'polenta': 0.68, 'potatoes': 0.63, 'protein powder': 0.4,
+  'pumpkin seeds': 0.55, 'puy lentils': 0.8, 'quark': 1, 'quinoa': 0.72, 'raisins': 0.63,
+  'rapeseed oil': 0.92, 'raspberries': 0.52, 'red lentils': 0.81, 'rice': 0.79, 'ricotta': 1.04,
+  'risotto rice': 0.84, 'rocket': 0.08, 'rolled oats': 0.36, 'rye flour': 0.43, 'salt': 1.2,
   'self-raising flour': 0.53, 'semolina': 0.7, 'sesame oil': 0.92, 'sesame seeds': 0.6, 'single cream': 1,
   'skyr': 1.06, 'sour cream': 1, 'soy milk': 1.03, 'soy sauce': 1.15, 'spelt flour': 0.47, 'spinach': 0.13,
   'split peas': 0.85, 'stock': 1, 'strawberries': 0.61, 'sugar': 0.84, 'sultanas': 0.63,
   'sunflower oil': 0.92, 'sunflower seeds': 0.6, 'sweet potato': 0.56, 'sweetcorn': 0.7, 'tahini': 1.02,
   'tomato puree': 1.1, 'tomato sauce': 1.04, 'vegetable oil': 0.92, 'vegetable stock': 1, 'vinegar': 1.01,
-  'walnuts': 0.42, 'water': 1, 'whipping cream': 0.99, 'wholemeal flour': 0.51, 'wine': 0.99,
-  'yoghurt': 1.03,
+  'walnuts': 0.42, 'water': 1, 'whey': 0.4, 'whey protein': 0.4, 'whipping cream': 0.99,
+  'wholemeal flour': 0.51, 'wine': 0.99, 'yoghurt': 1.03, 'yogurt': 1.03,
 };
 
 const words = (s) => ` ${String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
