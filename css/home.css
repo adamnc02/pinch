@@ -1,0 +1,125 @@
+/* Home (screens 01 / 02). From design-handoff reference.html: .app-header,
+   .filters, .seg, .chips, .grid, .card, .fab, .scroll, .edge-fade. */
+
+#app { height: 100%; }
+
+.home {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.home[hidden] { display: none; }
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(16px + env(safe-area-inset-top)) 14px 4px 24px;
+}
+@media (min-height: 700px) { .app-header { padding-top: max(60px, calc(16px + env(safe-area-inset-top))); } }
+.wordmark {
+  margin: 0;
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  font-size: var(--fs-wordmark);
+  line-height: 1;
+}
+
+.filters { padding: 16px 20px 0; display: flex; flex-direction: column; gap: 12px; }
+
+/* The grid scrolls under a still header. Content dissolves into the page at
+   the top and bottom (BLOC/Listly .edge-fade). The transparent end is
+   rgb(var(--bg-rgb) / 0), never `transparent`, which some browsers
+   interpolate through black. pointer-events: none so a fade never swallows
+   a tap. Anchored to the scrolling box, not the page. */
+.scroll { position: relative; flex: 1 1 0; min-height: 0; }
+.scroll > .grid { height: 100%; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
+.scroll > .grid::-webkit-scrollbar { display: none; }
+.edge-fade { position: absolute; left: 0; right: 0; pointer-events: none; z-index: 5; }
+.edge-fade-top { top: 0; height: 20px; background: linear-gradient(to bottom, rgb(var(--bg-rgb) / 1), rgb(var(--bg-rgb) / 0)); }
+.edge-fade-bottom { bottom: 0; height: 124px; background: linear-gradient(to top, rgb(var(--bg-rgb) / 1) 40%, rgb(var(--bg-rgb) / 0)); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
+  padding: 16px 20px calc(120px + env(safe-area-inset-bottom));
+}
+@media (min-width: 560px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.card {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 200px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  text-align: left;
+  color: var(--ink);
+}
+.card .media { position: absolute; inset: 0; display: flex; justify-content: center; }
+.card .media.photo { background: var(--photo-placeholder); color: rgba(255, 255, 255, .6); padding-top: 64px; }
+.card .media.flagged { background: var(--sunk); padding-top: 52px; }
+.card .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card .body {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 26px 12px 6px 12px;
+  background: var(--fade-card);
+  display: flex; align-items: flex-end; gap: 2px;
+}
+.card .text { flex: 1; min-width: 0; padding-bottom: 6px; }
+.card h3 {
+  margin: 0;
+  font-weight: var(--display-weight); letter-spacing: var(--display-tracking);
+  font-size: var(--fs-card-title); line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card p { margin: 3px 0 0; font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.skeleton { background: var(--sunk); box-shadow: none; animation: pulse 1.4s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .card.skeleton { animation: none; } }
+
+.grid > .notice, .grid > .empty { grid-column: 1 / -1; }
+.notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 6px 10px 14px; border-radius: var(--r-input);
+  background: var(--sunk); font-size: 13px; color: var(--muted);
+}
+.notice[hidden] { display: none; }
+.empty { padding: 48px 12px; text-align: center; }
+.empty p { margin: 0 0 6px; font-weight: 600; }
+.empty .hint { font-weight: 400; }
+
+.fab {
+  position: absolute; z-index: 10;
+  right: 20px; bottom: calc(32px + env(safe-area-inset-bottom));
+  width: 60px; height: 60px;
+  border: none; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent);
+  display: grid; place-items: center;
+  box-shadow: var(--shadow-fab);
+}
+.fab svg.i { width: 24px; height: 24px; stroke-width: 2.2; }
+
+/* Sign in */
+#signin[hidden] { display: none; }
+.signin {
+  max-width: 400px; margin: 0 auto; min-height: 100%;
+  padding: calc(72px + env(safe-area-inset-top)) 24px 32px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.wordmark.big { font-size: 44px; text-align: center; }
+.tagline { margin: 0 0 18px; text-align: center; color: var(--muted); }
+.signin-form { display: flex; flex-direction: column; gap: 12px; }
+.or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.signin-links { display: flex; justify-content: space-between; }
+.center { text-align: center; }
