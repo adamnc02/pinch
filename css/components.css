@@ -192,6 +192,11 @@
      display: grid; place-items: center; font-size: 13px; font-weight: 700; }
 .steps p { margin: 0; font-size: var(--fs-step); line-height: 1.5; }
 .tagged { margin-top: 5px !important; font-size: var(--fs-tag) !important; line-height: 1.45 !important; font-style: italic; color: var(--muted); }
+/* On the recipe sheet the tagged line sits on a light rounded panel. */
+.steps .tagged { display: inline-block; margin-top: 6px !important; padding: 4px 10px; border-radius: 10px; background: var(--sunk); }
+.cups-note { margin: 10px 4px 0; padding: 10px 12px; border-radius: var(--r-input); background: var(--sunk); display: flex; flex-direction: column; gap: 4px; }
+.cups-note p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.cups-note .btn { align-self: flex-start; height: 36px; padding: 0 2px; }
 
 .nutrition { margin: 14px 4px 0; padding: 12px 14px; border-radius: 16px; box-shadow: 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 10px; }
 .nut-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--muted); }

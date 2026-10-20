@@ -215,6 +215,13 @@ row, the grid between the two edge fades, and the 60 px add button.
   the Web Animations API — 225 ms to 90°, swap, 225 ms back — so the face can change height; the
   header stays still. With `prefers-reduced-motion` it cross-fades.
 - **Method:** numbered steps; under each, `stepLine(recipe, step, servings, opts)` in italics.
+- **Cups mode:** a weighed ingredient (g/kg) with no density stays as written, and a note under the list names them.
+  With a Claude key on the device, **Look up cup measures** sends those names (minus ones already known to be
+  weighed) to `claude.cupMeasures()`: grams per metric cup, or "not cup-measured". Densities in 0.03–2.5 g/ml are
+  added to the shared `pinch.densities` (`source: 'claude'`, insert-only, `state.addDensities`) and every recipe's
+  nutrition is refreshed; "not cup-measured" names are remembered on the device (`pinch.noCupMeasure`). Spoons are
+  never converted in any mode.
+- **Method tags** sit on a light rounded `--sunk` panel under each step.
 - **Nutrition** (under Ingredients): per serving from `recipe_nutrition` — it does not change with the
   stepper — and, when any ingredient is missing, "N need nutrition" with their names, which opens
   Check ingredients and saves from there.
@@ -384,8 +391,11 @@ The recipes BLOC reads back are in the `bloc_recipes_v1` views; BLOC's side of t
   - mode `metric`: cups → ml; mode `cups`: g/kg (with a density) and ml/l → cups, snapped, kept as
     written under ¼ cup; spoons always stay;
   - `to taste` → "to taste"; no qty → "".
-- **`densityFor(name, productName)`** — `js/lib/densities.js`, whole-name match, ingredient then
-  product. The live table replaces it after load.
+- **`densityFor(name, productName)`** — `js/lib/densities.js` (182 foods): the ingredient's whole name, the product's
+  whole name, then the **longest** table name found as whole words in the ingredient's name ("Flahavan's porridge
+  oats" → oats; "coconut milk" beats "milk"), then in the product's. The same rule as `pinch.ingredient_nutrition`;
+  `behaviour-pinch.mjs` checks they agree. The live table (seed + Claude-sourced rows) replaces the bundled copy after
+  load. No match → null, and a cup is never guessed.
 
 ## 19. Flags
 

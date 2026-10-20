@@ -123,6 +123,18 @@ export async function saveProduct(product) {
   return saved;
 }
 
+// Adds Claude-sourced densities, then refreshes nutrition for every recipe
+// (an ingredient written in cups may now be countable).
+export async function addDensities(rows) {
+  if (!rows.length) return;
+  requireOnline();
+  await storage.addDensities(rows);
+  const densities = { ...state.densities };
+  for (const r of rows) if (!(r.name in densities)) densities[r.name] = r.g_per_ml;
+  set({ densities });
+  await refreshNutrition(state.recipes.map((r) => r.id)).catch(() => {});
+}
+
 export async function deleteProduct(id) {
   requireOnline();
   await storage.deleteProduct(id);

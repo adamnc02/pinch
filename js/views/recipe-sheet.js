@@ -12,7 +12,9 @@ import { icon } from '../components/icons.js';
 import { flag } from '../components/flag.js';
 import { openSheet } from '../components/sheet.js';
 import * as state from '../state.js';
-import { onPrefs, amountOpts } from '../prefs.js';
+import { onPrefs, amountOpts, getAiKey, noCupNames, addNoCupNames } from '../prefs.js';
+import { toast } from '../components/toast.js';
+import * as claude from '../claude.js';
 import { scaleRecipe } from '../lib/scale.js';
 import { formatAmount, trimNumber } from '../lib/format.js';
 import { stepLine } from '../lib/method.js';
@@ -93,8 +95,44 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
     if (!scaled.ingredients.length) return [h('p', { class: 'hint pad' }, 'No ingredients yet. Tap the pencil to add some.')];
     return [
       h('ul', { class: 'ings' }, scaled.ingredients.map((i) => h('li', {}, h('span', {}, i.name), h('b', {}, amountFor(i))))),
+      cupsNote(),
       nutritionBlock(),
     ];
+  }
+
+  // In cups mode: the weighed ingredients with no cup measure are shown as
+  // written, and say so. "Look up cup measures" asks Claude (this device's
+  // key) for the ones not already known to be weighed, adds what it finds to
+  // the shared density table, and the list re-renders in cups.
+  let lookingUp = false;
+  function cupsNote() {
+    if (amountOpts().mode !== 'cups') return null;
+    const asWritten = recipe.ingredients.filter((i) => (i.unit === 'g' || i.unit === 'kg') && i.qty != null && state.densityForIngredient(i) == null);
+    if (!asWritten.length) return null;
+    const known = noCupNames();
+    const askable = [...new Set(asWritten.map((i) => i.name.trim().toLowerCase()).filter((n) => !known.has(n)))];
+    const key = getAiKey();
+    return h('div', { class: 'cups-note' },
+      h('p', {}, `Shown as written: ${asWritten.map((i) => i.name).join(', ')}. ${askable.length ? 'Pinch has no cup measure for ' + (asWritten.length === 1 ? 'it' : 'them') + ' yet.' : 'They\u2019re weighed, not measured in cups.'}`),
+      askable.length && key ? h('button', { class: 'btn quiet', type: 'button', disabled: lookingUp, onclick: () => lookUp(askable, key) }, lookingUp ? 'Looking up\u2026' : 'Look up cup measures') : null,
+      askable.length && !key ? h('p', { class: 'hint' }, `Add your Claude key in Settings \u203a Import from web to look ${askable.length === 1 ? 'it' : 'them'} up.`) : null);
+  }
+
+  async function lookUp(names, key) {
+    lookingUp = true; renderFace();
+    try {
+      const { densities, notCup } = await claude.cupMeasures(key, names);
+      if (notCup.length) addNoCupNames(notCup);
+      if (densities.length) await state.addDensities(densities);
+      toast(densities.length
+        ? `Added ${densities.length} cup measure${densities.length === 1 ? '' : 's'}${notCup.length ? `; ${notCup.length} weighed, not in cups` : ''}`
+        : 'Those are weighed, not measured in cups');
+    } catch (e) {
+      toast(e.message, { error: true });
+    } finally {
+      lookingUp = false;
+      renderFace();
+    }
   }
 
   function nutritionBlock() {
