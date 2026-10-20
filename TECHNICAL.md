@@ -243,6 +243,11 @@ The sheet re-renders when state or prefs change, and closes itself if the recipe
 - **Save:** empty steps are dropped, `validateRecipe()` lists every problem at once, then the photo
   uploads and `state.saveRecipe()`. Closing with changes asks "Discard changes?".
 - **Delete recipe** (edit only) asks first and says it goes for everyone in the household.
+- **The name field and "(Meal) " prefixes.** A recipe imported from BLOC is stored as BLOC named it, "(Dinner)
+  Lasagne". Every screen shows `displayName(name)` (the name without a leading `(Breakfast|Lunch|Dinner|Snack(s))`), and
+  sorting uses it too. The editor's name field shows `splitMealPrefix(name).title` and writes `prefix + typed text`, so
+  the stored prefix is kept silently; `validateRecipe` requires a name after the prefix. The BLOC import pre-selects
+  the meal a "(Meal) …" name states (`mealFromPrefix`). BLOC shows household recipes as "(Meal) Name" from `meal`.
 
 ## 12. Add ingredient and products
 

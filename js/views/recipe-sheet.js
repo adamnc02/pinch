@@ -16,7 +16,7 @@ import { onPrefs, amountOpts } from '../prefs.js';
 import { scaleRecipe } from '../lib/scale.js';
 import { formatAmount, trimNumber } from '../lib/format.js';
 import { stepLine } from '../lib/method.js';
-import { mealLabel } from '../lib/recipes.js';
+import { mealLabel, displayName } from '../lib/recipes.js';
 import { cuisineName } from '../lib/cuisines.js';
 import { photoUrl } from '../storage.js';
 
@@ -47,7 +47,7 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
       flip));
 
   const sheet = openSheet(content, {
-    kind: 'centre', label: recipe.name, className: 'sheet-recipe',
+    kind: 'centre', label: displayName(recipe.name), className: 'sheet-recipe',
     onClose: () => { unsub(); unprefs(); onClose?.(); },
   });
 
@@ -67,7 +67,7 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
       h('button', { class: 'icon-btn close', type: 'button', 'aria-label': 'Close', onclick: () => sheet.close() }, icon('x')),
       h('div', { class: 'title-row' },
         h('button', { class: 'icon-btn edit', type: 'button', 'aria-label': 'Edit recipe', onclick: () => onEdit(recipe.id) }, icon('pencil')),
-        h('h2', {}, recipe.name)));
+        h('h2', {}, displayName(recipe.name))));
     if (recipe.photoPath) {
       photoUrl(recipe.photoPath).then((url) => {
         if (!url) return;
@@ -167,7 +167,7 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
     if (!fresh) { sheet.close({ force: true }); return; }
     if (fresh !== recipe && fresh.serves !== recipe.serves) servings = fresh.serves;
     recipe = fresh;
-    sheet.sheet.setAttribute('aria-label', recipe.name);
+    sheet.sheet.setAttribute('aria-label', displayName(recipe.name));
     renderAll();
   });
   const unprefs = onPrefs(() => renderAmounts());

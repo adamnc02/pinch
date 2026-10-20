@@ -4,13 +4,13 @@
 // said first.
 
 import { UNITS } from './units.js';
-import { MEALS } from './recipes.js';
+import { MEALS, displayName } from './recipes.js';
 
 export function validateRecipe(recipe) {
   const problems = [];
   const add = (field, message) => problems.push({ field, message });
 
-  if (!recipe.name || !recipe.name.trim()) add('name', 'Give the recipe a name.');
+  if (!recipe.name || !displayName(recipe.name).trim()) add('name', 'Give the recipe a name.');
   if (!Number.isInteger(recipe.serves) || recipe.serves < 1 || recipe.serves > 100) {
     add('serves', 'Serves must be a whole number from 1 to 100.');
   }

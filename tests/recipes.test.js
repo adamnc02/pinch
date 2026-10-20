@@ -1,5 +1,5 @@
 import { describe, test, assertEqual } from './kit.js';
-import { cuisinesInUse, filterRecipes, sortRecipes } from '../js/lib/recipes.js';
+import { cuisinesInUse, filterRecipes, sortRecipes, splitMealPrefix, displayName, mealFromPrefix } from '../js/lib/recipes.js';
 
 // Only the fields these functions need. Real recipes have more.
 const r = (name, cuisine, meal = 'dinner') => ({ id: name, name, cuisine, meal });
@@ -57,5 +57,22 @@ describe('filterRecipes', () => {
 describe('sortRecipes', () => {
   test('alphabetical, ignoring case', () => {
     assertEqual(sortRecipes([r('risotto'), r('Bircher'), r('carbonara')]).map((x) => x.name), ['Bircher', 'carbonara', 'risotto']);
+  });
+});
+
+describe('the "(Meal) " name prefix', () => {
+  test('split keeps the prefix exactly, for re-attaching on save', () => {
+    assertEqual(splitMealPrefix('(Dinner) Carbonara'), { prefix: '(Dinner) ', title: 'Carbonara' });
+    assertEqual(splitMealPrefix('Carbonara'), { prefix: '', title: 'Carbonara' });
+  });
+  test('Pinch shows names without it, any case, Snack(s) too', () => {
+    assertEqual([displayName('(Dinner) Carbonara'), displayName('(breakfast)Oats'), displayName('(Snacks) Nuts'), displayName('(Brunch) Eggs')],
+      ['Carbonara', 'Oats', 'Nuts', '(Brunch) Eggs']);
+  });
+  test('the meal a BLOC name states', () => {
+    assertEqual([mealFromPrefix('(Dinner) Lasagne'), mealFromPrefix('(Snacks) Nuts'), mealFromPrefix('Lasagne')], ['dinner', null, null]);
+  });
+  test('sorting ignores the prefix', () => {
+    assertEqual(sortRecipes([r('(Dinner) Carbonara'), r('Bircher'), r('(Lunch) Avocado toast')]).map((x) => displayName(x.name)), ['Avocado toast', 'Bircher', 'Carbonara']);
   });
 });

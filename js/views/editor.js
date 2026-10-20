@@ -24,7 +24,7 @@ import { blankRecipe, blankStep } from '../lib/ids.js';
 import { validateRecipe } from '../lib/validate.js';
 import { removeIngredient, moveStep, toggleTag, stepLine } from '../lib/method.js';
 import { formatAmount } from '../lib/format.js';
-import { MEALS, mealLabel } from '../lib/recipes.js';
+import { MEALS, mealLabel, splitMealPrefix, displayName } from '../lib/recipes.js';
 import { CUISINES, cuisineName } from '../lib/cuisines.js';
 import { splitRecipeText, draftFromImport, looksLikeUrl, hostOf, parseIngredientLine, servesFrom, mealFrom } from '../lib/parse.js';
 import { openIngredientEditor } from './ingredient.js';
@@ -79,9 +79,11 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     const err = (field) => problems.find((p) => p.field === field)?.message;
     return [
       field('Recipe name', h('input', {
-        class: 'input', id: 'rn', value: draft.name, placeholder: 'e.g. Chana masala', autocomplete: 'off',
+        // The field shows the name without a "(Meal) " prefix; a stored prefix
+        // (a recipe from BLOC) is kept silently on every edit.
+        class: 'input', id: 'rn', value: splitMealPrefix(draft.name).title, placeholder: 'e.g. Chana masala', autocomplete: 'off',
         'aria-invalid': err('name') ? 'true' : null,
-        oninput: (e) => { draft.name = e.target.value; },
+        oninput: (e) => { draft.name = splitMealPrefix(draft.name).prefix + e.target.value; },
       }), err('name'), 'rn'),
       h('div', { class: 'two' },
         field('Serves', stepper({ value: draft.serves, label: 'servings', onChange: (v) => { draft.serves = v; } })),
@@ -374,7 +376,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   }
 
   async function del() {
-    const ok = await confirmSheet({ title: `Delete “${original.name}”?`, body: 'It goes for everyone in your household. This can’t be undone.', confirm: 'Delete', danger: true });
+    const ok = await confirmSheet({ title: `Delete \u201c${displayName(original.name)}\u201d?`, body: 'It goes for everyone in your household. This can’t be undone.', confirm: 'Delete', danger: true });
     if (!ok) return;
     try {
       await state.deleteRecipe(original.id);
