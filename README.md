@@ -33,7 +33,8 @@ tests and the `pinch-import` Edge Function live in
 - **Products:** the household's library, found by barcode (Open Food Facts), by name, or typed in from
   the label. Products hold all the nutrition.
 - **Settings:** theme, amounts as written / metric / cups, cup size, the household code, an optional
-  personal Claude key, backup and restore, and the one-off import from a BLOC backup.
+  Claude key (kept on the phone, as in BLOC), backup and restore, and the one-off import from a BLOC
+  backup.
 
 ## Rules that must not be quietly undone
 
@@ -83,6 +84,13 @@ BLOC (a separate Supabase project) reads `pinch.bloc_recipes_v1` and `pinch.bloc
 and nothing else. A breaking change ships as `_v2`; `_v1` is never edited. Recipes are edited only in
 Pinch. There is no export and no two-way sync.
 
+### A Claude key never leaves the phone except to Anthropic.
+
+As in BLOC, each person's key is saved once in Settings, kept in this device's localStorage, and
+sent only to `api.anthropic.com` from the browser (`js/claude.js`). The `pinch-import` Edge Function
+only fetches pages and holds no key. Do not move Claude calls to a server, or add a shared key,
+without deciding that again.
+
 ### Sign-in is required. There is no guest mode.
 
 Recipes live in the household on the server. `?demo` runs the sample recipes in one browser for
@@ -106,7 +114,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (108 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (113 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying

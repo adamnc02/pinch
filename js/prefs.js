@@ -29,9 +29,9 @@ export function applyTheme() {
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
 
-// The person's own Claude key, for imports when the household key isn't
-// available. On this device only; sent with each import request and never
-// stored anywhere else.
+// The person's own Claude key, entered once in Settings, as in BLOC. Kept on
+// this device only and sent only to api.anthropic.com (claude.js), when an
+// import needs Claude.
 export function getAiKey() { try { return localStorage.getItem(AI_KEY) ?? ''; } catch { return ''; } }
 export function setAiKey(v) {
   try { if (v) localStorage.setItem(AI_KEY, v.trim()); else localStorage.removeItem(AI_KEY); } catch { /* private mode */ }

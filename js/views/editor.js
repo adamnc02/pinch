@@ -19,6 +19,7 @@ import { resizePhoto } from '../components/photo.js';
 import * as state from '../state.js';
 import * as storage from '../storage.js';
 import { amountOpts, getAiKey } from '../prefs.js';
+import * as claude from '../claude.js';
 import { blankRecipe, blankStep } from '../lib/ids.js';
 import { validateRecipe } from '../lib/validate.js';
 import { removeIngredient, moveStep, toggleTag, stepLine } from '../lib/method.js';
@@ -271,13 +272,28 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     try {
       let src;
       if (looksLikeUrl(text)) {
-        const res = await storage.callImport({ mode: 'url', url: text }, getAiKey());
-        if (!res?.recipe) {
-          importNote = { error: true, text: res?.message ?? 'That page couldn’t be read. Paste the recipe text instead.' };
+        const res = await storage.callImport({ mode: 'url', url: text });
+        if (res?.source === 'jsonld') {
+          src = res.recipe;
+        } else if (res?.source === 'page') {
+          // No recipe data on the page: Claude reads its text, with this
+          // device's own key, straight from the browser.
+          const key = getAiKey();
+          if (!key) {
+            importNote = { error: true, text: 'This page has no recipe data Pinch can read on its own. Add your Claude key once in Settings \u203a Import from web, or paste the recipe text here.' };
+            return;
+          }
+          src = await claude.recipeFromPage(key, `${res.title}\n\n${res.text}`);
+          if (!src) {
+            importNote = { error: true, text: 'No recipe was found on that page. Paste the recipe text instead.' };
+            importText = '';
+            return;
+          }
+        } else {
+          importNote = { error: true, text: res?.message ?? 'That page couldn\u2019t be read. Paste the recipe text instead.' };
           importText = '';
           return;
         }
-        src = res.recipe;
       } else {
         const split = splitRecipeText(text);
         src = { name: split.name, recipeYield: split.serves ? String(split.serves) : null, recipeIngredient: split.ingredients, recipeInstructions: split.steps };
@@ -313,19 +329,20 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     }
   }
 
-  // Lines the parser couldn't read go to Claude (when a key is available);
-  // anything still unread is left as written for the cook to fix.
+  // Lines the parser couldn't read go to Claude when this device has a key;
+  // anything still unread is left as written for the cook to fix in Check
+  // ingredients.
   async function fixUnparsed(recipe, ids) {
+    const key = getAiKey();
+    if (!key) return;
     const lines = ids.map((id) => recipe.ingredients.find((i) => i.id === id)?.sourceLine).filter(Boolean);
-    const res = await storage.callImport({ mode: 'lines', lines }, getAiKey()).catch(() => null);
-    if (!res?.ingredients) return;
-    for (const out of res.ingredients) {
+    const split = await claude.splitLines(key, lines).catch(() => []);
+    for (const out of split) {
       const ing = recipe.ingredients.find((i) => i.sourceLine === out.line);
       if (!ing) continue;
-      const fallback = parseIngredientLine(out.line);
-      ing.name = out.name?.trim() || fallback.name;
-      ing.qty = out.qty ?? null;
-      ing.unit = out.unit ?? 'to taste';
+      ing.name = out.name || parseIngredientLine(out.line).name;
+      ing.qty = out.qty;
+      ing.unit = out.unit;
     }
   }
 

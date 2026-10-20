@@ -51,6 +51,7 @@ css/
   splash.css          the launch splash
 js/
   app.js              boot, auth, routes, splash, service worker registration
+  claude.js           Claude from the browser with this device's key (as BLOC)
   supabase.js         the client (pinch schema, own storageKey, PKCE)
   storage.js          the only module that touches Supabase or stored data
   state.js            the one in-memory source of truth, with subscribe()
@@ -62,7 +63,7 @@ js/
                       check, settings, bloc-import, signin
   lib/                pure functions, all tested: recipes, scale, units, format,
                       densities, method, validate, rows, backup, off, parse,
-                      bloc-import, cuisines, ids
+                      bloc-import, claude-shape, cuisines, ids
 icons/, fonts/        app icon set, the sprite, self-hosted Plus Jakarta Sans
 ```
 
@@ -155,8 +156,8 @@ sessions; joining another household reloads the page so no write can use a stale
 people can read one recipe in different units. `onPrefs(fn)` lets the open recipe sheet re-render
 when they change.
 
-`localStorage['pinch.anthropicKey']` is the person's own Claude key, if they add one. It is sent as
-`x-pinch-key` with each import request and stored nowhere else.
+`localStorage['pinch.anthropicKey']` is the person's own Claude key, entered once in Settings, as in
+BLOC. It stays on this device and is sent only to `api.anthropic.com`, by `js/claude.js`.
 
 ## 7. Routing
 
@@ -296,22 +297,28 @@ Photos and Open Food Facts images are never stored as products; a product has no
 The **Import from web** tile: one box takes a link or the whole recipe's text, then Serves and Meal,
 then **Read recipe**. A link shows "Link found · site".
 
-- **A link** goes to the `pinch-import` Edge Function (`{ mode: 'url' }`), which reads the page's
-  schema.org `Recipe` JSON-LD, or sends the page text to Claude when there is none. A page that can't
-  be read (many large sites refuse server-side fetches with 403) asks for the text instead.
+- **A link** goes to the `pinch-import` Edge Function (`{ mode: 'url' }`), which only fetches the page
+  (browsers can't, CORS). It returns the page's schema.org `Recipe` JSON-LD, or, when there is none,
+  the page's text — which the app sends to Claude itself with this device's key
+  (`claude.recipeFromPage`). With no key saved, the cook is asked to add one in Settings or paste the
+  text. A page that can't be read (many large sites refuse server-side fetches with 403) asks for the
+  text instead.
 - **Text** is split in the app by `splitRecipeText()` (Ingredients / Method headings, or short
   amount lines vs. sentences).
 - Either way `draftFromImport()` runs `parseIngredientLine()` on every ingredient line, gives every
   row a fresh id, maps the category to a meal and the cuisine words to a code, and pre-tags each step
   with the ingredients it names (`suggestTags`). **Serves and Meal come from the recipe when it says**,
   else from the form.
-- Lines the parser can't read are sent once to the function (`{ mode: 'lines' }`) for Claude to
-  structure; if no key is available they stay as written for the cook to fix.
+- Lines the parser can't read are sent once to Claude (`claude.splitLines`) when this device has a
+  key; otherwise they stay as written for the cook to fix in Check ingredients.
 - Ingredients whose name matches a household product are linked automatically, then Check
   ingredients opens, then the method editor.
 
-The household Claude key is used only for members of the households in `PINCH_AI_HOUSEHOLDS`, with a
-daily cap; otherwise the person's own key from Settings (§6). See `pinch-SUPABASE.md`.
+**Claude, from the browser** (`js/claude.js`): the same pattern as BLOC — `fetch` to
+`api.anthropic.com/v1/messages` with `x-api-key` (the device's key) and
+`anthropic-dangerous-direct-browser-access: true`; model `claude-haiku-5-5`, effort `low`, a JSON
+schema for the answer. `js/lib/claude-shape.js` holds the two schemas and turns each answer into
+Pinch's shapes (tested). No Pinch server sees the key; the Edge Function holds none.
 
 ## 16. Settings, household, backup
 
@@ -323,8 +330,8 @@ daily cap; otherwise the person's own key from Settings (§6). See `pinch-SUPABA
   photos).
 - **Appearance:** System / Light / Dark.
 - **Show amounts as:** As written / Metric / Cups, and Cup size: Metric 250 ml / US 237 ml.
-- **Import from web:** "Household key active" when the function says so; otherwise the personal key
-  field (password input, stored on the device, Remove).
+- **Import from web:** the Claude key field (password input), saved on this device only, with
+  Remove — as BLOC's Settings.
 - **Your data:** Import recipes from BLOC (§17); **Back up recipes** downloads
   `pinch-backup-<date>.json` (`makeBackup`: kind, version 1, recipes, products); **Restore from a
   backup** checks it with `parseBackup` (never throws) and upserts every product then every recipe,
@@ -405,7 +412,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 108 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 113 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 

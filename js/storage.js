@@ -182,10 +182,12 @@ export async function photoUrl(path) {
 }
 
 // ── web import ────────────────────────────────────────────────────────────
-export async function callImport(body, personalKey) {
-  if (isDemo) return { error: 'demo', message: 'Importing needs a signed-in Pinch. In the demo, paste the recipe text instead.' };
-  const headers = personalKey ? { 'x-pinch-key': personalKey } : {};
-  const { data, error } = await supabase.functions.invoke('pinch-import', { body, headers });
+// The pinch-import function only fetches the page (browsers can't, CORS).
+// It holds no Claude key: when a page has no recipe data it returns the text
+// and the app sends that to Claude itself (claude.js).
+export async function callImport(body) {
+  if (isDemo) return { error: 'demo', message: 'Importing a link needs a signed-in Pinch. In the demo, paste the recipe text instead.' };
+  const { data, error } = await supabase.functions.invoke('pinch-import', { body });
   if (error) {
     try { const b = await error.context?.json?.(); if (b?.message) return b; } catch { /* */ }
     return { error: 'network', message: navigator.onLine === false ? 'You’re offline.' : 'The import service didn’t answer. Paste the recipe text instead.' };

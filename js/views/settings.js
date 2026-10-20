@@ -21,10 +21,8 @@ export function openSettings({ onSignOut }) {
   const body = h('div', { class: 'settings' });
   const sheet = openSheet(body, { kind: 'bottom', label: 'Settings' });
   let household = null;
-  let householdKey = null;
 
   storage.householdInfo(state.get().householdId).then((info) => { household = info; render(); }).catch(() => {});
-  storage.callImport({ mode: 'status' }).then((r) => { householdKey = Boolean(r?.householdKey); render(); }).catch(() => { householdKey = false; render(); });
 
   const seg = (label, options, value, onPick) => h('div', { class: 'seg sm', role: 'group', 'aria-label': label },
     options.map(([v, text]) => h('button', { type: 'button', 'aria-pressed': String(value === v), onclick: () => { onPick(v); render(); } }, text)));
@@ -67,19 +65,17 @@ export function openSettings({ onSignOut }) {
       h('p', { class: 'footer-note' }, `Pinch ${VERSION}${storage.isDemo ? ' · demo' : ''}`));
   }
 
+  // As in BLOC: the key is entered once, kept on this device, and sent only
+  // to Anthropic when an import needs Claude.
   function importKeyGroup() {
-    if (householdKey === null) return h('div', { class: 'list' }, row('key', 'Checking…', null));
-    if (householdKey) {
-      return h('div', { class: 'list' }, row('key', 'Household key active', 'Reads recipes from links. Only your household can use it.'));
-    }
     const has = Boolean(getAiKey());
-    const input = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'sk-ant-…', 'aria-label': 'Your Claude API key' });
+    const input = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'sk-ant-\u2026', 'aria-label': 'Your Claude API key' });
     return h('div', { class: 'list padded' },
-      row('key', has ? 'Your key is on this device' : 'Add your own Claude key',
-        'Used for links without recipe data and lines Pinch can’t read. It stays on this device and is sent only with each import.'),
+      row('key', has ? 'Claude key saved on this phone' : 'Add your Claude API key',
+        'For links without recipe data, and lines Pinch can\u2019t read on its own. Stored on this phone only and sent only to Anthropic.'),
       h('div', { class: 'key-row' },
-        has ? h('button', { class: 'btn secondary', type: 'button', onclick: () => { setAiKey(''); render(); toast('Key removed'); } }, 'Remove key')
-          : [input, h('button', { class: 'btn primary', type: 'button', onclick: () => { if (input.value.trim()) { setAiKey(input.value); render(); toast('Key saved on this device'); } } }, 'Save')]));
+        has ? h('button', { class: 'btn secondary', type: 'button', onclick: () => { setAiKey(''); render(); toast('Key removed from this phone'); } }, 'Remove key')
+          : [input, h('button', { class: 'btn primary', type: 'button', onclick: () => { if (input.value.trim()) { setAiKey(input.value); render(); toast('Key saved on this phone'); } } }, 'Save')]));
   }
 
   function restoreRow() {
