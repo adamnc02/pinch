@@ -34,7 +34,7 @@ export function openBlocImport() {
     if (!backup) {
       const input = h('input', { type: 'file', accept: '.json,application/json', class: 'visually-hidden', onchange: pick });
       return clear(body, head,
-        h('p', { class: 'hint' }, 'In BLOC, open Settings › Export to make a backup, then choose it here. Pinch reads only its recipes and food library; nothing else in the file is kept.'),
+        h('p', { class: 'hint' }, 'In BLOC, open Settings \u203a My data \u203a Backup \u203a Export and choose Local file. Then choose that file here. Pinch reads only its recipes and food library; nothing else in the file is kept.'),
         h('label', { class: 'photo-drop' }, input, icon('upload'), h('span', {}, h('b', {}, 'Choose a BLOC backup'), h('span', {}, 'bloc-backup-….json'))),
         error ? h('p', { class: 'field-error', role: 'alert' }, error) : null);
     }

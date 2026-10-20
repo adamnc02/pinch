@@ -339,7 +339,9 @@ Pinch's shapes (tested). No Pinch server sees the key; the Edge Function holds n
 
 ## 17. Import from BLOC
 
-`views/bloc-import.js` with `lib/bloc-import.js`. A one-off bring-across from a BLOC backup.
+`views/bloc-import.js` with `lib/bloc-import.js`. A one-off bring-across from a BLOC backup: the full backup from
+BLOC's Settings › My data › Backup › Export › Local file (BLOC's single-recipe share file is a different shape and is
+refused as "no BLOC recipes").
 
 1. `readBlocBackup()` keeps **only** each recipe's id, name, servings, ingredients and per-serving
    figures, and the food library's name, brand and barcode. Nothing else in the file is read, kept
