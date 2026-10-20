@@ -13,7 +13,7 @@ import { openSheet, sheetHead } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import * as state from '../state.js';
 import { readBlocBackup, mapBlocRecipe, estimatePerServing, reconcile } from '../lib/bloc-import.js';
-import { MEALS, mealLabel } from '../lib/recipes.js';
+import { MEALS, mealLabel, displayName, mealFromPrefix } from '../lib/recipes.js';
 import { CUISINES } from '../lib/cuisines.js';
 import { trimNumber } from '../lib/format.js';
 
@@ -47,8 +47,8 @@ export function openBlocImport() {
         const pick = picks.get(r.id);
         return h('li', { class: on ? 'on' : '' },
           h('label', { class: 'bloc-row' },
-            h('input', { type: 'checkbox', checked: on, onchange: (e) => { if (e.target.checked) picks.set(r.id, { meal: null, cuisine: null }); else picks.delete(r.id); render(); } }),
-            h('span', { class: 'txt' }, h('b', {}, r.name),
+            h('input', { type: 'checkbox', checked: on, onchange: (e) => { if (e.target.checked) picks.set(r.id, { meal: mealFromPrefix(r.name), cuisine: null }); else picks.delete(r.id); render(); } }),
+            h('span', { class: 'txt' }, h('b', {}, displayName(r.name)),
               h('span', {}, `Serves ${trimNumber(r.servings, 1)} · ${Math.round(r.per_serving_kcal)} kcal a serving${already.has(r.id) ? ' · already imported, will be replaced' : ''}`))),
           on ? h('div', { class: 'two' },
             h('div', { class: 'input select' }, h('span', {}, pick.meal ? mealLabel(pick.meal) : 'Meal…'), icon('chevron'),
@@ -105,7 +105,7 @@ export function openBlocImport() {
       const pinch = n ? { kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat } : m.estimate;
       const rec = reconcile(pinch, m.bloc);
       return h('li', { class: rec.ok ? '' : 'mismatch' },
-        h('b', {}, m.recipe.name),
+        h('b', {}, displayName(m.recipe.name)),
         h('table', { class: 'recon' },
           h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, 'Pinch'), h('th', {}, 'BLOC'))),
           h('tbody', {}, rec.rows.map((r) => h('tr', { class: r.ok ? '' : 'off' },

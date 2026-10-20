@@ -91,6 +91,13 @@ sent only to `api.anthropic.com` from the browser (`js/claude.js`). The `pinch-i
 only fetches pages and holds no key. Do not move Claude calls to a server, or add a shared key,
 without deciding that again.
 
+### Names are shown without a "(Meal) " prefix; a stored one is kept.
+
+BLOC names recipes "(Dinner) Carbonara", and a recipe imported from BLOC keeps that name. Pinch has the meal as its own
+field, so every screen shows the name without a leading bracketed meal (`displayName` in `js/lib/recipes.js`), the
+editor's name field edits only the part after it, and saving puts the stored prefix back unchanged. BLOC shows every
+household recipe as "(Meal) Name" from the meal field, so a recipe made in Pinch needs no prefix.
+
 ### Sign-in is required. There is no guest mode.
 
 Recipes live in the household on the server. `?demo` runs the sample recipes in one browser for

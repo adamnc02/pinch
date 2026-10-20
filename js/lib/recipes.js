@@ -21,9 +21,34 @@ export function filterRecipes(recipes, { mode, value }) {
   return [...recipes];
 }
 
-// Alphabetical by name, ignoring case and accents. Home's grid order.
+// BLOC names recipes "(Dinner) Carbonara"; a recipe imported from BLOC keeps
+// that name. Pinch has the meal as its own field, so it shows the name
+// without the bracketed meal, and the editor keeps the stored prefix
+// silently. BLOC adds "(Meal) " from the meal field to any name without one.
+export const MEAL_PREFIX = /^\((breakfast|lunch|dinner|snacks?)\)\s*/i;
+
+// "(Dinner) Carbonara" → { prefix: '(Dinner) ', title: 'Carbonara' }.
+export function splitMealPrefix(name) {
+  const s = String(name ?? '');
+  const m = s.match(MEAL_PREFIX);
+  return m ? { prefix: m[0], title: s.slice(m[0].length) } : { prefix: '', title: s };
+}
+
+// The name as Pinch shows it.
+export const displayName = (name) => splitMealPrefix(name).title;
+
+// The meal a "(Dinner) …" name states, or null. Used to pre-fill the meal of
+// a recipe brought across from BLOC.
+export function mealFromPrefix(name) {
+  const m = String(name ?? '').match(MEAL_PREFIX);
+  if (!m) return null;
+  const meal = m[1].toLowerCase();
+  return MEALS.includes(meal) ? meal : null;
+}
+
+// Alphabetical by the shown name, ignoring case, accents and any "(Meal) ".
 export function sortRecipes(recipes) {
-  return [...recipes].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  return [...recipes].sort((a, b) => displayName(a.name).localeCompare(displayName(b.name), 'en', { sensitivity: 'base' }));
 }
 
 export const MEALS = ['breakfast', 'lunch', 'dinner'];

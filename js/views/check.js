@@ -24,6 +24,7 @@ import { convert, unitOptions, nutritionStatus } from '../lib/units.js';
 import { formatAmount, qtyInput, quarters, isQuarter, trimNumber } from '../lib/format.js';
 import { removeIngredient } from '../lib/method.js';
 import { openIngredientEditor, productSummary } from './ingredient.js';
+import { displayName } from '../lib/recipes.js';
 import { openScanner } from './scanner.js';
 import { openProductForm } from './product.js';
 
@@ -78,7 +79,7 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
       h('div', { class: 'progress' },
         h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(all.length), 'aria-valuenow': String(done) },
           h('i', { style: { width: `${all.length ? (done / all.length) * 100 : 100}%` } })),
-        h('div', { class: 'lbl' }, h('span', {}, `${draft.name || 'Recipe'} · ${draft.ingredients.length} ingredients`),
+        h('div', { class: 'lbl' }, h('span', {}, `${displayName(draft.name) || 'Recipe'} · ${draft.ingredients.length} ingredients`),
           h('span', {}, h('b', {}, `${done} of ${all.length}`), ' have nutrition'))),
       h('ul', { class: 'checks' }, draft.ingredients.map((i) => (i.id === open ? activeRow(i) : row(i)))),
       h('div', { class: 'sticky' },

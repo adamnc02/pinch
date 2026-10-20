@@ -13,6 +13,7 @@ describe('validateRecipe', () => {
   test('reports every problem at once', () => {
     assertEqual(fields({ ...ok(), name: ' ', serves: 0, meal: null }), ['name', 'serves', 'meal']);
   });
+  test('a name that is only a "(Meal) " prefix is still missing', () => assertEqual(fields({ ...ok(), name: '(Dinner) ' }), ['name']));
   test('serves must be a whole number', () => assertEqual(fields({ ...ok(), serves: 2.5 }), ['serves']));
   test('qty is a positive number or null', () => {
     const r = ok();

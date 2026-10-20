@@ -7,7 +7,7 @@ import { icon } from '../components/icons.js';
 import { flag } from '../components/flag.js';
 import * as state from '../state.js';
 import { getPrefs, setPref } from '../prefs.js';
-import { cuisinesInUse, filterRecipes, sortRecipes, MEALS, mealLabel } from '../lib/recipes.js';
+import { cuisinesInUse, filterRecipes, sortRecipes, MEALS, mealLabel, displayName } from '../lib/recipes.js';
 import { cuisineName } from '../lib/cuisines.js';
 import { photoUrl } from '../storage.js';
 import { openRecipe } from '../router.js';
@@ -105,7 +105,7 @@ function card(r) {
   } else {
     media.append(flag(r.cuisine, 'lg'));
   }
-  return h('button', { class: 'card', type: 'button', dataset: { recipe: r.id }, 'aria-label': `${r.name}, ${meta}` },
+  return h('button', { class: 'card', type: 'button', dataset: { recipe: r.id }, 'aria-label': `${displayName(r.name)}, ${meta}` },
     media,
-    h('div', { class: 'body' }, h('div', { class: 'text' }, h('h3', {}, r.name), h('p', {}, meta))));
+    h('div', { class: 'body' }, h('div', { class: 'text' }, h('h3', {}, displayName(r.name)), h('p', {}, meta))));
 }
