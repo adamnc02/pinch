@@ -19,7 +19,6 @@
   justify-content: space-between;
   padding: calc(16px + env(safe-area-inset-top)) 14px 4px 24px;
 }
-@media (min-height: 700px) { .app-header { padding-top: max(60px, calc(16px + env(safe-area-inset-top))); } }
 .wordmark {
   margin: 0;
   font-weight: var(--display-weight);
@@ -81,6 +80,8 @@
   font-weight: var(--display-weight); letter-spacing: var(--display-tracking);
   font-size: var(--fs-card-title); line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* overflow clips at the box edge: room for a g, j, p or y's tail, given back below. */
+  padding-bottom: 0.12em; margin-bottom: -0.12em;
 }
 .card p { margin: 3px 0 0; font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card.skeleton { background: var(--sunk); box-shadow: none; animation: pulse 1.4s ease-in-out infinite alternate; }
