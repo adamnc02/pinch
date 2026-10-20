@@ -8,10 +8,14 @@
 // · `each` is a whole number.
 //
 // mode (Settings › Show amounts as):
+//   'original' — exactly what was entered (× the servings), in its own unit,
+//               to 2 decimals: no rounding for humans, no "≈"; a real quarter
+//               of a spoon or cup still shows as its glyph
 //   'written' — the unit the recipe was written in
 //   'metric'  — cups become ml; spoons stay (they are metric already)
-//   'cups'    — g/kg (with a density) and ml/l become cups; under ¼ cup the
-//               written amount is kept, and spoons stay
+//   'cups'    — g/kg (with a density) and ml/l become cups, snapped to the
+//               nearest quarter (≈) and never below ¼; under ⅛ cup the written
+//               amount is kept, and spoons stay
 // Only cups are ever converted to or from (see units.js).
 
 import { convert, isWeight } from './units.js';
@@ -75,14 +79,23 @@ export function formatAmount(qty, unit, { mode = 'written', cup = 'metric', dens
   if (unit === 'to taste') return 'to taste';
   if (qty == null || !Number.isFinite(qty)) return '';
 
+  if (mode === 'original') {
+    if (unit === 'each') return trimNumber(qty, 2);
+    if ((unit === 'tsp' || unit === 'tbsp' || unit === 'cup') && isQuarter(qty) && qty >= 0.25 - EPS) {
+      return `${quarters(qty)} ${unit === 'cup' ? (qty > 1 + EPS ? 'cups' : 'cup') : unit}`;
+    }
+    const label = unit === 'cup' ? (qty > 1 + EPS ? 'cups' : 'cup') : unit;
+    return `${trimNumber(qty, 2)} ${label}`;
+  }
+
   if (mode === 'metric' && unit === 'cup') {
     const r = convert(qty, 'cup', 'ml');
     return written(r.qty, 'ml');
   }
   if (mode === 'cups' && (isWeight(unit) || unit === 'ml' || unit === 'l')) {
     const r = convert(qty, unit, 'cup', { density, cup });
-    if (!r.error && r.qty >= 0.25 - EPS) {
-      const snapped = Math.round(r.qty * 4) / 4;
+    if (!r.error && r.qty >= 0.125 - EPS) {
+      const snapped = Math.max(0.25, Math.round(r.qty * 4) / 4);
       const label = snapped > 1 + EPS ? 'cups' : 'cup';
       // A conversion INTO cups always snaps, so it is marked unless the
       // result happens to land exactly on a quarter.

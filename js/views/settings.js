@@ -51,7 +51,7 @@ export function openSettings({ onSignOut }) {
         seg('Theme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], prefs.theme, (v) => setPref('theme', v))),
 
       h('div', { class: 'group' }, h('span', { class: 'label' }, 'Show amounts as'),
-        seg('Amounts', [['written', 'As written'], ['metric', 'Metric'], ['cups', 'Cups']], prefs.amounts, (v) => setPref('amounts', v)),
+        seg('Amounts', [['original', 'Original'], ['written', 'As written'], ['metric', 'Metric'], ['cups', 'Cups']], prefs.amounts, (v) => setPref('amounts', v)),
         h('span', { class: 'label sub-label' }, 'Cup size'),
         seg('Cup size', [['metric', 'Metric · 250 ml'], ['us', 'US · 237 ml']], prefs.cup, (v) => setPref('cup', v))),
 
@@ -85,11 +85,24 @@ export function openSettings({ onSignOut }) {
       h('span', { class: 'end' }, icon('chevron-right')));
   }
 
-  function backup() {
+  // The share sheet (AirDrop, Save to Files…) where the device has one: a
+  // download link inside an installed iOS app opens a blank page instead.
+  // Elsewhere, a plain download.
+  async function backup() {
     const s = state.get();
     const data = makeBackup({ recipes: s.recipes, products: s.products });
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: `pinch-backup-${new Date().toISOString().slice(0, 10)}.json` });
+    const name = `pinch-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const json = JSON.stringify(data, null, 2);
+    const file = new File([json], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'Pinch backup' });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // the person closed the sheet
+      }
+    }
+    const a = h('a', { href: URL.createObjectURL(new Blob([json], { type: 'application/json' })), download: name });
     document.body.append(a);
     a.click();
     a.remove();

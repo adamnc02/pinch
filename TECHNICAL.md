@@ -152,7 +152,7 @@ sessions; joining another household reloads the page so no write can use a stale
 ## 6. Per-device preferences
 
 `localStorage['pinch.prefs']`: `theme` (`system | light | dark`), `amounts`
-(`written | metric | cups`), `cup` (`metric | us`), `homeMode` (`meal | cuisine`). Not synced: two
+(`original | written | metric | cups`), `cup` (`metric | us`), `homeMode` (`meal | cuisine`). Not synced: two
 people can read one recipe in different units. `onPrefs(fn)` lets the open recipe sheet re-render
 when they change.
 
@@ -261,7 +261,9 @@ The sheet re-renders when state or prefs change, and closes itself if the recipe
 `views/ingredient.js` (screen 09): name, amount, and a unit chip from the controlled list (`to taste`
 clears the amount). Typing a name lists **household products** that match ("Nutrition · from your
 products"); otherwise Scan barcode or From label. A linked product shows with Unlink. An ingredient
-can be saved without a product.
+can be saved without a product. For tsp, tbsp and cup the number box is replaced by a whole-number
+stepper and – ¼ ½ ¾, so a spoon or cup amount is always a quarter; an existing amount that isn't
+(a recipe's 0.33 tsp) is kept exactly, with a line saying so, until the picker is pressed.
 
 `views/product.js` (screen 10): name, brand, optional barcode (6–14 digits, unique in the household),
 nutrition per 100 g / 100 ml / item, all four macros required (0 is fine), optional weight of one
@@ -341,12 +343,15 @@ Pinch's shapes (tested). No Pinch server sees the key; the Edge Function holds n
   (`redeem_household_link_code()`, then a reload); Sign out (also clears the offline cache, the remembered photo URLs and the service worker's cached
   photos).
 - **Appearance:** System / Light / Dark.
-- **Show amounts as:** As written / Metric / Cups, and Cup size: Metric 250 ml / US 237 ml.
+- **Show amounts as:** Original (the stored number and unit, untidied: 122 g, 0.33 tsp) / As written
+  (the same units, rounded for reading: 120 g) / Metric / Cups, and Cup size: Metric 250 ml / US 237 ml.
 - **Import from web:** the Claude key field (password input), saved on this device only, with
   Remove — as BLOC's Settings.
-- **Your data:** Import recipes from BLOC (§17); **Back up recipes** downloads
-  `pinch-backup-<date>.json` (`makeBackup`: kind, version 1, recipes, products); **Restore from a
-  backup** checks it with `parseBackup` (never throws) and upserts every product then every recipe,
+- **Your data:** Import recipes from BLOC (§17); **Back up recipes** hands
+  `pinch-backup-<date>.json` to the share sheet (`navigator.share` with a File, when `canShare` says
+  files can go; AirDrop, Save to Files) and otherwise downloads it. A download link inside an installed
+  iOS app opens a blank page, so the share sheet comes first. The file is
+  `makeBackup`'s: kind, version 1, recipes, products. **Restore from a backup** checks it with `parseBackup` (never throws) and upserts every product then every recipe,
   replacing any with the same id.
 
 ## 17. Import from BLOC
@@ -388,10 +393,12 @@ The recipes BLOC reads back are in the `bloc_recipes_v1` views; BLOC's side of t
   - `each`: a whole number, at least 1;
   - g/ml: one decimal under 10, whole under 100, nearest 5 above, kg/l from 1000;
   - tsp/tbsp/cup: ¼ ½ ¾ glyphs for a real quarter, else snapped with "≈"; under ⅛ the decimal;
-  - mode `metric`: cups → ml; mode `cups`: g/kg (with a density) and ml/l → cups, snapped, kept as
-    written under ¼ cup; spoons always stay;
+  - mode `original`: the stored number (up to two decimals) and unit, with no rounding or snapping;
+    quarters still as glyphs;
+  - mode `metric`: cups → ml; mode `cups`: g/kg (with a density) and ml/l → cups, snapped (from ⅛ cup
+    up, shown as at least ≈ ¼), kept as written under ⅛ cup; spoons always stay;
   - `to taste` → "to taste"; no qty → "".
-- **`densityFor(name, productName)`** — `js/lib/densities.js` (182 foods): the ingredient's whole name, the product's
+- **`densityFor(name, productName)`** — `js/lib/densities.js` (187 foods): the ingredient's whole name, the product's
   whole name, then the **longest** table name found as whole words in the ingredient's name ("Flahavan's porridge
   oats" → oats; "coconut milk" beats "milk"), then in the product's. The same rule as `pinch.ingredient_nutrition`;
   `behaviour-pinch.mjs` checks they agree. The live table (seed + Claude-sourced rows) replaces the bundled copy after

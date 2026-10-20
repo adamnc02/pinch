@@ -32,7 +32,7 @@ tests and the `pinch-import` Edge Function live in
   ingredients**, which links each ingredient to a product.
 - **Products:** the household's library, found by barcode (Open Food Facts), by name, or typed in from
   the label. Products hold all the nutrition.
-- **Settings:** theme, amounts as written / metric / cups, cup size, the household code, an optional
+- **Settings:** theme, amounts original / as written / metric / cups, cup size, the household code, an optional
   Claude key (kept on the phone, as in BLOC), backup and restore, and the one-off import from a BLOC
   backup.
 
@@ -50,7 +50,7 @@ Volume units convert by fixed arithmetic; g ↔ cup needs the ingredient's densi
 offered** and returns an error rather than a guess. A stored `cup` is a metric 250 ml cup; US cups are
 a display setting. Cups show ¼ ½ ¾ only when the value really is that quarter (BLOC's `fmtInch` rule)
 and "≈" when a value was snapped. The database's nutrition view follows the same rule, the app's
-density table (`js/lib/densities.js`, 182 foods) must equal the `pinch.densities` seed, and both find a density the same
+density table (`js/lib/densities.js`, 187 foods) must equal the `pinch.densities` seed, and both find a density the same
 way (whole name, then the longest known food named in it) — behaviour tests in `silver-octo-invention` fail otherwise.
 In cups mode a weighed ingredient with no density stays as written, with a note; **Look up cup measures** asks Claude
 (the device's key) and adds what it finds to the shared table.
