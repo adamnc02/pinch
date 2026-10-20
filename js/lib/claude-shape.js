@@ -68,3 +68,50 @@ export function linesFromClaude(out, asked) {
       return { line: i.line, qty, unit, name: String(i.name ?? '').trim() || i.line };
     });
 }
+
+// ── cup measures ────────────────────────────────────────────────────────────
+// For ingredients Pinch has no density for: is it sensibly measured in cups,
+// and how many grams fill one metric cup (250 ml)?
+export const CUPS_SCHEMA = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          cup_measurable: { type: 'boolean' },
+          grams_per_cup: { type: 'number' },
+        },
+        required: ['name', 'cup_measurable', 'grams_per_cup'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['items'],
+  additionalProperties: false,
+};
+
+// Claude's answer → { densities: [{ name, g_per_ml }], notCup: [name] }, for the
+// names that were asked about only. Names are lower-cased and trimmed (the
+// table's key). A density outside 0.03–2.5 g/ml (what pinch.densities
+// accepts) is dropped rather than stored.
+export function cupMeasuresFromClaude(out, asked) {
+  const key = (s) => String(s ?? '').trim().toLowerCase();
+  const wanted = new Set(asked.map(key));
+  const densities = [];
+  const notCup = [];
+  for (const it of Array.isArray(out?.items) ? out.items : []) {
+    const name = key(it?.name);
+    if (!wanted.has(name)) continue;
+    const g = Number(it.grams_per_cup);
+    const perMl = Math.round((g / 250) * 1000) / 1000;
+    if (it.cup_measurable === true && Number.isFinite(g) && perMl >= 0.03 && perMl <= 2.5 && name.length >= 2 && name.length <= 60) {
+      densities.push({ name, g_per_ml: perMl });
+    } else {
+      notCup.push(name);
+    }
+  }
+  return { densities, notCup };
+}

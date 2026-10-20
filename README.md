@@ -49,9 +49,11 @@ changes `serves`, and nothing the display does is saved.
 Volume units convert by fixed arithmetic; g ↔ cup needs the ingredient's density; **g ↔ ml is never
 offered** and returns an error rather than a guess. A stored `cup` is a metric 250 ml cup; US cups are
 a display setting. Cups show ¼ ½ ¾ only when the value really is that quarter (BLOC's `fmtInch` rule)
-and "≈" when a value was snapped. The database's nutrition view follows the same rule, and the app's
-density table (`js/lib/densities.js`) must equal the `pinch.densities` seed — a behaviour test in
-`silver-octo-invention` fails if they differ.
+and "≈" when a value was snapped. The database's nutrition view follows the same rule, the app's
+density table (`js/lib/densities.js`, 182 foods) must equal the `pinch.densities` seed, and both find a density the same
+way (whole name, then the longest known food named in it) — behaviour tests in `silver-octo-invention` fail otherwise.
+In cups mode a weighed ingredient with no density stays as written, with a note; **Look up cup measures** asks Claude
+(the device's key) and adds what it finds to the shared table.
 
 ### Nutrition lives only on products, and is computed once, in SQL.
 

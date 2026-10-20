@@ -1,5 +1,5 @@
 import { describe, test, assertEqual } from './kit.js';
-import { recipeFromClaude, linesFromClaude } from '../js/lib/claude-shape.js';
+import { recipeFromClaude, linesFromClaude, cupMeasuresFromClaude } from '../js/lib/claude-shape.js';
 
 describe('recipeFromClaude', () => {
   test('a found recipe becomes the import shape', () => {
@@ -32,4 +32,17 @@ describe('linesFromClaude', () => {
     ]);
   });
   test('a malformed answer gives nothing', () => assertEqual(linesFromClaude({}, ['x']), []));
+});
+
+describe('cupMeasuresFromClaude', () => {
+  test('grams per metric cup become g per ml; weighed things and odd values are not stored', () => {
+    const out = cupMeasuresFromClaude({ items: [
+      { name: 'Freekeh', cup_measurable: true, grams_per_cup: 155 },
+      { name: 'chicken breast', cup_measurable: false, grams_per_cup: 0 },
+      { name: 'feathers', cup_measurable: true, grams_per_cup: 2 },
+      { name: 'not asked', cup_measurable: true, grams_per_cup: 100 },
+    ] }, ['freekeh', 'Chicken breast', 'feathers']);
+    assertEqual(out, { densities: [{ name: 'freekeh', g_per_ml: 0.62 }], notCup: ['chicken breast', 'feathers'] });
+  });
+  test('a malformed answer adds nothing', () => assertEqual(cupMeasuresFromClaude(null, ['x']), { densities: [], notCup: [] }));
 });

@@ -37,5 +37,15 @@ export function setAiKey(v) {
   try { if (v) localStorage.setItem(AI_KEY, v.trim()); else localStorage.removeItem(AI_KEY); } catch { /* private mode */ }
 }
 
+// Ingredient names Claude said are not measured in cups (meat, eggs, tins…),
+// so "Look up cup measures" doesn't ask about them again on this device.
+const NO_CUP_KEY = 'pinch.noCupMeasure';
+export function noCupNames() { try { return new Set(JSON.parse(localStorage.getItem(NO_CUP_KEY) ?? '[]')); } catch { return new Set(); } }
+export function addNoCupNames(names) {
+  const set = noCupNames();
+  names.forEach((n) => set.add(n));
+  try { localStorage.setItem(NO_CUP_KEY, JSON.stringify([...set])); } catch { /* private mode */ }
+}
+
 // The display options formatAmount takes, from the current prefs.
 export const amountOpts = () => ({ mode: prefs.amounts, cup: prefs.cup });

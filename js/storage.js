@@ -139,6 +139,15 @@ export async function deleteRecipe(recipe) {
   must(await supabase.from('recipes').delete().eq('id', recipe.id), 'delete the recipe');
 }
 
+// ── densities ─────────────────────────────────────────────────────────────
+// Adds densities looked up with Claude to the shared table. Insert only:
+// a name already there (seed or learned) is left as it is.
+export async function addDensities(rows) {
+  if (isDemo || !rows.length) return;
+  must(await supabase.from('densities').upsert(rows.map((r) => ({ name: r.name, g_per_ml: r.g_per_ml, source: 'claude' })),
+    { onConflict: 'name', ignoreDuplicates: true }), 'save the cup measures');
+}
+
 // ── products ──────────────────────────────────────────────────────────────
 export async function saveProduct(product, householdId) {
   if (isDemo) return demoSave('products', product);
