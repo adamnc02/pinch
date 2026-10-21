@@ -121,7 +121,10 @@ Nutrition  { kcal, protein, carbs, fat, counted, missing, notCounted, complete }
   `cuisine` is an ISO alpha-2 code or null.
 - `unit` ∈ `g kg ml l tsp tbsp cup each`, `to taste`.
 - `basis` ∈ `100g | 100ml | item`; `source` ∈ `label | off | bloc`.
-- Ids are `crypto.randomUUID()`, made when the row is created (`lib/ids.js`).
+- Ids are version 4 uuids from `lib/ids.js` `newId()`, made when the row is created: `crypto.randomUUID()`
+  where it exists, else the same uuid from `crypto.getRandomValues` (`uuidFromRandom`). 🚨 `randomUUID` only
+  exists in a secure context, so on a phone testing over `http://<Mac LAN IP>:8000` it is missing; nothing
+  may call it directly, or adding a recipe fails there.
 - `lib/rows.js` maps the five recipe tables to this shape and back (`rowsToRecipes`, `recipeToPayload`),
   ordered by `position`; `rowToProduct`, `productToRow`, `rowToNutrition` do the rest. The payload always carries
   `seasoning` on every ingredient and a `cooking` list (empty clears it); see §27 for why the database treats a
@@ -347,8 +350,18 @@ then **Read recipe**. A link shows "Link found · site".
   (`claude.recipeFromPage`). With no key saved, the cook is asked to add one in Settings or paste the
   text. A page that can't be read (many large sites refuse server-side fetches with 403) asks for the
   text instead.
-- **Text** is split in the app by `splitRecipeText()` (Ingredients / Method headings, or short
-  amount lines vs. sentences).
+- **Text** is split in the app by `splitRecipeText()`: Ingredients / Method headings; or, for a phone
+  note with a checklist and numbered steps, the list lines are ingredients and the numbered lines the
+  method (a title only if the first line is neither); otherwise short amount lines vs. sentences.
+  List markers (`- [ ]`, `- [x]`, `☐`, `•`, `-`, `*`) are taken off every ingredient line
+  (`stripListMarker`), and when a method is numbered, a line that doesn't start a new number continues
+  the step above it (`joinWrapped`) — notes wrap long steps across lines.
+- **Names are title case** (`titleCase`): every all-lower-case word capitalised, small joining words
+  (and, of, with…) left alone after the first, any word part already containing a capital kept as
+  written ("McVitie's", "BBQ"), hyphenated parts each ("Self-Raising"). Applied in `draftFromImport` to
+  the recipe and ingredient names, and to the names Claude returns for unread lines.
+- **Cooking options are read from the method** (`suggestCooking`, §27) and the draft starts with them;
+  the cook sees them in the editor's Cooking field and can change or delete them.
 - Either way `draftFromImport()` runs `parseIngredientLine()` on every ingredient line, gives every
   row a fresh id, maps the category to a meal (sauce, dressing, condiment, marinade, dip, gravy, salsa
   and pesto are `sauce`) and the cuisine words to a code, and pre-tags each step
@@ -469,7 +482,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 164 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 179 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 
@@ -598,3 +611,15 @@ microwave bbq slow_cooker other`, `name` (required for, and only for, `other`), 
   deleting every option still clears them. Treating a missing key as "none" would make an un-updated phone
   wipe every recipe's cooking options the first time it saves.
 - Cooking options are recipe data, not nutrition: BLOC's views don't carry them.
+- **Read from an imported method** by `lib/cooking.js` `suggestCooking(stepTexts)`, at most one option per
+  method:
+  - A step names the method: air fryer, slow cooker, microwave, BBQ / barbecue / rotisserie, fan oven,
+    oven / bake / roast, grill (not "grill plate" or "grill pan"). Hob work (fry, simmer) is never an
+    option. A time or temperature belongs to its own step's method, or else the last one named before it
+    ("…start the rotisserie motor." then "Close the lid and cook for 40 minutes"). A step about the fridge,
+    marinating, resting, chilling, soaking or freezing gives no time.
+  - "200°C (180°C fan)" / "200C/180C fan": Oven at 200 and Fan oven at 180, and an oven step's time goes to
+    both. °F is converted to °C. A method mentioned with no time, temperature or note is dropped.
+  - 🚨 **An internal temperature is never `temp_c`.** "until the internal temperature is 75°C", "a
+    thermometer reads 165°F" is how hot the food must get, so it becomes the note "Until 75°C inside".
+    Saving it as the cooking temperature would tell the cook to cook at 75 °C.

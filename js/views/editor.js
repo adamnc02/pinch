@@ -29,7 +29,7 @@ import * as state from '../state.js';
 import * as storage from '../storage.js';
 import { amountOpts, getAiKey } from '../prefs.js';
 import * as claude from '../claude.js';
-import { blankRecipe, blankStep, blankCooking } from '../lib/ids.js';
+import { blankRecipe, blankStep, blankCooking, newId } from '../lib/ids.js';
 import { validateRecipe } from '../lib/validate.js';
 import { removeIngredient, moveStep, toggleTag, stepLine } from '../lib/method.js';
 import { formatAmount } from '../lib/format.js';
@@ -37,7 +37,7 @@ import { nutritionStatus } from '../lib/units.js';
 import { COOKING_METHODS, cookingLine, tempInputToC, tempForInput, looksLikeSeasoning } from '../lib/cooking.js';
 import { MEALS, mealLabel, splitMealPrefix, displayName } from '../lib/recipes.js';
 import { CUISINES, cuisineName } from '../lib/cuisines.js';
-import { splitRecipeText, draftFromImport, looksLikeUrl, hostOf, parseIngredientLine, servesFrom, mealFrom } from '../lib/parse.js';
+import { splitRecipeText, draftFromImport, looksLikeUrl, hostOf, parseIngredientLine, servesFrom, mealFrom, titleCase, stripListMarker } from '../lib/parse.js';
 import { openIngredientEditor } from './ingredient.js';
 import { openCheckIngredients } from './check.js';
 import { openScanner } from './scanner.js';
@@ -201,7 +201,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     openScanner({
       forName: null,
       onProduct: (product) => {
-        const ing = { id: crypto.randomUUID(), name: product.name, qty: null, unit: product.basis === '100ml' ? 'ml' : product.basis === 'item' ? 'each' : 'g', productId: product.id };
+        const ing = { id: newId(), name: product.name, qty: null, unit: product.basis === '100ml' ? 'ml' : product.basis === 'item' ? 'each' : 'g', productId: product.id };
         openIngredientEditor({ ingredient: ing, isNew: true, onSave: (saved) => { draft.ingredients = [...draft.ingredients, saved]; render(); } });
       },
     });
@@ -401,7 +401,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
         importNote = { error: true, text: 'No ingredients were found. Check the text has a list of ingredients.' };
         return;
       }
-      draft = { ...recipe, id: draft.id, cooking: draft.cooking ?? [] };
+      draft = { ...recipe, id: draft.id };
       mode = 'enter';
       const toMethod = () => requestAnimationFrame(() => body.querySelector('.method')?.scrollIntoView({ block: 'start' }));
       if (!state.get().nutritionOn) { editingStep = null; toMethod(); return; }
@@ -430,7 +430,8 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     for (const out of split) {
       const ing = recipe.ingredients.find((i) => i.sourceLine === out.line);
       if (!ing) continue;
-      ing.name = out.name || parseIngredientLine(out.line).name;
+      // Claude's name gets the same cleaning as the parser's.
+      ing.name = titleCase(stripListMarker(out.name).trim() || parseIngredientLine(out.line).name);
       ing.qty = out.qty;
       ing.unit = out.unit;
     }

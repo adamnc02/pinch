@@ -13,6 +13,8 @@
 // so each becomes a Pinch ingredient linked to a product whose nutrition is
 // worked back from those numbers.
 
+import { newId as makeId } from './ids.js';
+
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const key = (s) => String(s ?? '').trim().toLowerCase();
 
@@ -60,7 +62,7 @@ const per100 = (total, per1, grams) => {
 // a household product with that barcode, one with the same name (and
 // brand), and only then a new product. Products made earlier in the same
 // import are reused too, so two recipes using one food make one product.
-export function mapBlocRecipe(bloc, foodLibrary, householdProducts, { newId = () => crypto.randomUUID(), pending = [] } = {}) {
+export function mapBlocRecipe(bloc, foodLibrary, householdProducts, { newId = makeId, pending = [] } = {}) {
   const problems = [];
   const newProducts = [];
   const all = () => [...householdProducts, ...pending, ...newProducts];
