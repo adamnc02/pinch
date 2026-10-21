@@ -1,6 +1,9 @@
 // Home (screens 01 / 02): the wordmark and Settings, By meal | By cuisine,
 // the chip row, the card grid between two edge fades, and the add button.
 // Only the grid scrolls. One click listener handles every card.
+// A long press (500 ms without moving), or a right-click / the context-menu
+// key, opens the card's menu instead (Send to Listly), and the click that
+// ends the press is swallowed so the recipe doesn't also open.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -11,6 +14,10 @@ import { cuisinesInUse, filterRecipes, sortRecipes, MEALS, mealLabel, displayNam
 import { cuisineName } from '../lib/cuisines.js';
 import { photoUrl } from '../storage.js';
 import { openRecipe } from '../router.js';
+import { openCardMenu } from './listly.js';
+
+const LONG_PRESS_MS = 500;
+const MOVE_TOLERANCE = 10;
 
 let filter = { mode: getPrefs().homeMode === 'cuisine' ? 'cuisine' : 'meal', value: null };
 let els = null;
@@ -33,8 +40,36 @@ export function mountHome(root, { onAdd, onSettings }) {
       h('div', { class: 'edge-fade edge-fade-bottom', 'aria-hidden': 'true' })),
     h('button', { class: 'fab', type: 'button', 'aria-label': 'Add recipe', onclick: onAdd }, icon('plus')));
 
+  let press = null;
+  const cancelPress = () => { if (press) clearTimeout(press.timer); if (press && !press.fired) press = null; };
+  const menuFor = (p) => { p.fired = performance.now(); navigator.vibrate?.(10); openCardMenu(p.id); };
+  grid.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest('[data-recipe]');
+    if (!card || e.button !== 0) return;
+    const id = card.dataset.recipe;
+    const p = { id, x: e.clientX, y: e.clientY, fired: 0 };
+    p.timer = setTimeout(() => menuFor(p), LONG_PRESS_MS);
+    press = p;
+  });
+  grid.addEventListener('pointermove', (e) => {
+    if (press && !press.fired && Math.hypot(e.clientX - press.x, e.clientY - press.y) > MOVE_TOLERANCE) cancelPress();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => grid.addEventListener(t, cancelPress));
+  grid.addEventListener('scroll', cancelPress, { passive: true });
+  grid.addEventListener('contextmenu', (e) => {
+    const card = e.target.closest('[data-recipe]');
+    if (!card) return;
+    e.preventDefault();
+    if (press?.fired && performance.now() - press.fired < 1500) return;   // the timer already opened it
+    if (press) clearTimeout(press.timer);
+    press = { id: card.dataset.recipe, fired: 0 };
+    menuFor(press);
+  });
   grid.addEventListener('click', (e) => {
     const card = e.target.closest('[data-recipe]');
+    // Only the click that ends the press itself: a stale one never swallows a later tap or Enter.
+    if (press?.fired && performance.now() - press.fired < 1500) { press = null; e.preventDefault(); return; }
+    press = null;
     if (card) openRecipe(card.dataset.recipe);
   });
   state.subscribe(render);

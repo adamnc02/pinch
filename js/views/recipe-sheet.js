@@ -5,14 +5,19 @@
 // · Ingredients | Method flips the content like a card (rotateY, ~450 ms);
 //   the header stays still. With prefers-reduced-motion it cross-fades.
 // · Per-serving nutrition comes only from pinch.recipe_nutrition, so it does
-//   not change with the stepper.
+//   not change with the stepper. It is hidden when the person has turned
+//   Nutrition and barcodes off.
+// · On a wide screen (prefs WIDE) with Side by side on, Ingredients and
+//   Method are two columns with no tabs and no flip.
+// · The basket opens Send to Listly at the servings shown.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
 import { flag } from '../components/flag.js';
 import { openSheet } from '../components/sheet.js';
 import * as state from '../state.js';
-import { onPrefs, amountOpts, getAiKey, noCupNames, addNoCupNames } from '../prefs.js';
+import { onPrefs, amountOpts, getAiKey, noCupNames, addNoCupNames, sideBySide, WIDE } from '../prefs.js';
+import { openSendToListly } from './listly.js';
 import { toast } from '../components/toast.js';
 import * as claude from '../claude.js';
 import { scaleRecipe } from '../lib/scale.js';
@@ -39,19 +44,28 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
   const face = h('div', { class: 'face', role: 'tabpanel' });
   const flip = h('div', { class: 'flip' }, face);
 
-  const content = h('div', { class: 'recipe' },
-    hero,
-    h('div', { class: 'sheet-body' },
-      h('div', { class: 'scaler' },
-        h('div', {}, h('div', { class: 'lbl' }, 'Serves'), h('div', { class: 'val' }, recipeServes)),
-        h('div', { class: 'ctrl' }, minus, servingsOut, plus)),
-      tabs,
-      flip));
+  const cols = h('div', { class: 'cols' });
+  const sheetBody = h('div', { class: 'sheet-body' });
+  const content = h('div', { class: 'recipe' }, hero, sheetBody);
+  const scaler = h('div', { class: 'scaler' },
+    h('div', {}, h('div', { class: 'lbl' }, 'Serves'), h('div', { class: 'val' }, recipeServes)),
+    h('div', { class: 'ctrl' }, minus, servingsOut, plus));
+  let split = null;
+  function layout() {
+    const next = sideBySide();
+    if (next === split) return;
+    split = next;
+    sheet.sheet.classList.toggle('split', split);
+    clear(sheetBody, scaler, split ? cols : [tabs, flip]);
+  }
 
   const sheet = openSheet(content, {
     kind: 'centre', label: displayName(recipe.name), className: 'sheet-recipe',
-    onClose: () => { unsub(); unprefs(); onClose?.(); },
+    onClose: () => { unsub(); unprefs(); wide.removeEventListener?.('change', relayout); onClose?.(); },
   });
+  const wide = matchMedia(WIDE);
+  const relayout = () => { layout(); renderAmounts(); };
+  wide.addEventListener?.('change', relayout);
 
   function step(d) {
     servings = Math.max(1, Math.min(99, servings + d));
@@ -68,7 +82,9 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
       h('div', { class: 'tags' }, tags),
       h('button', { class: 'icon-btn close', type: 'button', 'aria-label': 'Close', onclick: () => sheet.close() }, icon('x')),
       h('div', { class: 'title-row' },
-        h('button', { class: 'icon-btn edit', type: 'button', 'aria-label': 'Edit recipe', onclick: () => onEdit(recipe.id) }, icon('pencil')),
+        h('div', { class: 'hero-actions' },
+          h('button', { class: 'icon-btn edit', type: 'button', 'aria-label': 'Send to Listly', onclick: () => openSendToListly(recipe.id, { servings }) }, icon('basket')),
+          h('button', { class: 'icon-btn edit', type: 'button', 'aria-label': 'Edit recipe', onclick: () => onEdit(recipe.id) }, icon('pencil'))),
         h('h2', {}, displayName(recipe.name))));
     if (recipe.photoPath) {
       photoUrl(recipe.photoPath).then((url) => {
@@ -136,6 +152,7 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
   }
 
   function nutritionBlock() {
+    if (!state.get().nutritionOn) return null;
     const n = state.get().nutrition[recipe.id];
     const missing = recipe.ingredients.filter((i) => ['no_product', 'unconvertible'].includes(state.get().ingredientStatus[i.id]));
     if (!n) return null;
@@ -168,6 +185,12 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
   }
 
   function renderFace() {
+    if (split) {
+      clear(cols,
+        h('section', { class: 'col' }, h('h3', { class: 'col-head' }, 'Ingredients'), ingredientsFace()),
+        h('section', { class: 'col' }, h('h3', { class: 'col-head' }, 'Method'), methodFace()));
+      return;
+    }
     clear(face, tab === 'ingredients' ? ingredientsFace() : methodFace());
   }
 
@@ -208,7 +231,8 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
     sheet.sheet.setAttribute('aria-label', displayName(recipe.name));
     renderAll();
   });
-  const unprefs = onPrefs(() => renderAmounts());
+  const unprefs = onPrefs(() => { layout(); renderAmounts(); });
+  layout();
   renderAll();
   return sheet;
 }

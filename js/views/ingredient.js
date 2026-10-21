@@ -9,6 +9,8 @@
 // Typing a name lists matching HOUSEHOLD products first, so a product is
 // only scanned once. Otherwise: Scan barcode, or From label. An ingredient
 // can be saved without a product; it is then marked "needs nutrition".
+// With Nutrition and barcodes off, the product part is not shown at all, and
+// a product already linked stays linked.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -41,15 +43,16 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
   const sheet = openSheet(body, { kind: 'bottom', label: title ?? (editing ? 'Edit ingredient' : 'Add ingredient') });
 
   function render() {
+    const nutritionOn = state.get().nutritionOn;
     const product = state.getProduct(ing.productId);
-    const suggestions = product ? [] : state.searchProducts(ing.name, 4);
+    const suggestions = product || !nutritionOn ? [] : state.searchProducts(ing.name, 4);
     const nameInput = h('input', {
       id: 'in', class: 'input', value: ing.name, placeholder: 'e.g. Chickpeas', autocomplete: 'off', autofocus: !ing.name,
       oninput: (e) => { ing.name = e.target.value; renderSuggestions(); },
     });
     const suggestBox = h('div', { class: 'field' });
     function renderSuggestions() {
-      const list = state.getProduct(ing.productId) ? [] : state.searchProducts(ing.name, 4);
+      const list = state.getProduct(ing.productId) || !state.get().nutritionOn ? [] : state.searchProducts(ing.name, 4);
       clear(suggestBox, list.length ? [
         h('span', { class: 'label' }, 'Nutrition · from your products'),
         list.map((p) => h('button', { class: 'suggest', type: 'button', onclick: () => link(p) },
@@ -72,13 +75,14 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
               oninput: (e) => { qtyText = e.target.value; },
             }),
             unitChips())),
-      product
+      !nutritionOn ? null
+        : product
         ? h('div', { class: 'field' }, h('span', { class: 'label' }, 'Nutrition'),
           h('div', { class: 'suggest linked' }, h('span', { class: 'pk' }, icon('check')),
             h('span', { class: 'txt' }, h('b', {}, product.name), h('span', {}, productSummary(product))),
             h('button', { class: 'btn quiet', type: 'button', onclick: () => { ing.productId = null; render(); } }, 'Unlink')))
         : suggestBox,
-      product ? null : h('div', { class: 'field' }, h('span', { class: 'label' }, suggestions.length ? 'Not there?' : 'Nutrition'),
+      product || !nutritionOn ? null : h('div', { class: 'field' }, h('span', { class: 'label' }, suggestions.length ? 'Not there?' : 'Nutrition'),
         h('div', { class: 'two' },
           h('button', { class: 'btn primary', type: 'button', onclick: scan }, icon('barcode'), 'Scan barcode'),
           h('button', { class: 'btn secondary', type: 'button', onclick: fromLabel }, icon('keyboard'), 'From label')),

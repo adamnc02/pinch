@@ -1,8 +1,10 @@
 // Settings (screen 08), a bottom sheet:
-//   Household · Appearance · Show amounts as (+ Cup size) · Import from web ·
-//   Your data (Import recipes from BLOC, Back up recipes, Restore).
-// Appearance and units are per device (prefs.js); everything under
-// Household and Your data is the household's.
+//   Household · Appearance (+ side by side on a wide screen) · Show amounts
+//   as (+ Cup size) · Nutrition · Import from web · Your data (Import recipes
+//   from BLOC, Back up recipes, Restore).
+// Appearance and units are per device (prefs.js); Nutrition is the person's,
+// saved on their login; everything under Household and Your data is the
+// household's.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -12,10 +14,11 @@ import * as state from '../state.js';
 import * as storage from '../storage.js';
 import { supabase } from '../supabase.js';
 import { getPrefs, setPref, getAiKey, setAiKey } from '../prefs.js';
+import { toggle } from '../components/toggle.js';
 import { makeBackup, parseBackup } from '../lib/backup.js';
 import { openBlocImport } from './bloc-import.js';
 
-export const VERSION = '1.0';
+export const VERSION = '1.1';
 
 export function openSettings({ onSignOut }) {
   const body = h('div', { class: 'settings' });
@@ -48,12 +51,20 @@ export function openSettings({ onSignOut }) {
           row('logout', 'Sign out', email ? `Signed in as ${email}` : null, { onclick: signOut }))),
 
       h('div', { class: 'group' }, h('span', { class: 'label' }, 'Appearance'),
-        seg('Theme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], prefs.theme, (v) => setPref('theme', v))),
+        seg('Theme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], prefs.theme, (v) => setPref('theme', v)),
+        h('div', { class: 'list' },
+          row('columns', 'Ingredients and method side by side', 'On a tablet or a wide screen. Off: one at a time, with the card flip.',
+            { end: toggle({ on: prefs.sideBySide !== false, label: 'Ingredients and method side by side', onChange: (v) => setPref('sideBySide', v) }) }))),
 
       h('div', { class: 'group' }, h('span', { class: 'label' }, 'Show amounts as'),
         seg('Amounts', [['original', 'Original'], ['written', 'As written'], ['metric', 'Metric'], ['cups', 'Cups']], prefs.amounts, (v) => setPref('amounts', v)),
         h('span', { class: 'label sub-label' }, 'Cup size'),
         seg('Cup size', [['metric', 'Metric · 250 ml'], ['us', 'US · 237 ml']], prefs.cup, (v) => setPref('cup', v))),
+
+      h('div', { class: 'group' }, h('span', { class: 'label' }, 'Nutrition'),
+        h('div', { class: 'list' },
+          row('barcode', 'Nutrition and barcodes', 'For BLOC. Off hides nutrition and the barcode and \u201cneeds nutrition\u201d prompts. Saved on your account, so every phone you sign in on follows it.',
+            { end: toggle({ on: state.get().nutritionOn, label: 'Nutrition and barcodes', onChange: setNutrition }) }))),
 
       h('div', { class: 'group' }, h('span', { class: 'label' }, 'Import from web'), importKeyGroup()),
 
@@ -76,6 +87,16 @@ export function openSettings({ onSignOut }) {
       h('div', { class: 'key-row' },
         has ? h('button', { class: 'btn secondary', type: 'button', onclick: () => { setAiKey(''); render(); toast('Key removed from this phone'); } }, 'Remove key')
           : [input, h('button', { class: 'btn primary', type: 'button', onclick: () => { if (input.value.trim()) { setAiKey(input.value); render(); toast('Key saved on this phone'); } } }, 'Save')]));
+  }
+
+  async function setNutrition(on) {
+    try {
+      await state.setNutritionOn(on);
+      toast(on ? 'Nutrition and barcodes on' : 'Nutrition and barcodes off');
+    } catch (e) {
+      toast(e.message, { error: true });
+      throw e;
+    }
   }
 
   function restoreRow() {

@@ -190,6 +190,68 @@ export async function photoUrl(path) {
   return data.signedUrl;
 }
 
+// ── Listly ────────────────────────────────────────────────────────────────
+// Send to Listly writes straight into Listly's own tables (the `listly`
+// schema, same household, household RLS), exactly the rows Listly's
+// insertItem() writes: id, household_id, list_id, text, done, position.
+// user_id and created_at are left to their defaults (auth.uid(), now()), so
+// Listly's "New stuff to buy" push names this person, as for an item typed
+// in Listly. PowerSync carries the rows to both phones.
+const listly = () => supabase.schema('listly');
+const DEMO_LISTLY_KEY = 'pinch.demo.listly.v1';
+
+export async function listlyLists(householdId) {
+  if (isDemo) return demoListly().lists;
+  return must(await listly().from('shopping_lists').select('id,name,is_default,position').eq('household_id', householdId), 'load your Listly lists');
+}
+
+export async function listlyItems(listId) {
+  if (isDemo) return demoListly().items.filter((i) => i.list_id === listId);
+  return must(await listly().from('shopping_items').select('text,done,position').eq('list_id', listId), 'load that list');
+}
+
+// One insert, so all the items land or none do. Then the list's
+// never_had_items goes false, as Listly does on its first item.
+export async function addListlyItems(householdId, listId, rows) {
+  if (isDemo) {
+    const d = demoListly();
+    d.items.push(...rows.map((r) => ({ ...r, list_id: listId })));
+    try { localStorage.setItem(DEMO_LISTLY_KEY, JSON.stringify(d)); } catch { /* */ }
+    return;
+  }
+  must(await listly().from('shopping_items').insert(rows.map((r) => ({ ...r, household_id: householdId, list_id: listId }))), 'add the items to Listly');
+  await listly().from('shopping_lists').update({ never_had_items: false }).eq('id', listId).eq('never_had_items', true);
+}
+
+function demoListly() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DEMO_LISTLY_KEY) ?? 'null');
+    if (d && Array.isArray(d.lists)) return d;
+  } catch { /* */ }
+  return {
+    lists: [{ id: 'demoTsco', name: 'Tesco', is_default: true, position: 0 }, { id: 'demoAldi', name: 'Aldi', is_default: false, position: 1 }],
+    items: [{ list_id: 'demoTsco', text: 'Milk', done: false, position: 0 }],
+  };
+}
+
+// ── nutrition switch ──────────────────────────────────────────────────────
+// Saved on the person's login (auth user_metadata.pinch_nutrition), so it
+// follows them to every phone. Missing means on. The demo keeps it here.
+const DEMO_NUTRITION_KEY = 'pinch.demo.nutrition';
+export function nutritionOn(user) {
+  if (isDemo) { try { return localStorage.getItem(DEMO_NUTRITION_KEY) !== 'off'; } catch { return true; } }
+  return user?.user_metadata?.pinch_nutrition !== false;
+}
+export async function freshUser() {
+  if (isDemo) return null;
+  const { data, error } = await supabase.auth.getUser();
+  return error ? null : data.user;
+}
+export async function setNutrition(on) {
+  if (isDemo) { try { localStorage.setItem(DEMO_NUTRITION_KEY, on ? 'on' : 'off'); } catch { /* */ } return null; }
+  return must(await supabase.auth.updateUser({ data: { pinch_nutrition: on } }), 'save that setting').user;
+}
+
 // ── web import ────────────────────────────────────────────────────────────
 // The pinch-import function only fetches the page (browsers can't, CORS).
 // It holds no Claude key: when a page has no recipe data it returns the text
