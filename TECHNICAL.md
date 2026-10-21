@@ -121,7 +121,10 @@ Nutrition  { kcal, protein, carbs, fat, counted, missing, notCounted, complete }
   `cuisine` is an ISO alpha-2 code or null.
 - `unit` ∈ `g kg ml l tsp tbsp cup each`, `to taste`.
 - `basis` ∈ `100g | 100ml | item`; `source` ∈ `label | off | bloc`.
-- Ids are `crypto.randomUUID()`, made when the row is created (`lib/ids.js`).
+- Ids are version 4 uuids from `lib/ids.js` `newId()`, made when the row is created: `crypto.randomUUID()`
+  where it exists, else the same uuid from `crypto.getRandomValues` (`uuidFromRandom`). 🚨 `randomUUID` only
+  exists in a secure context, so on a phone testing over `http://<Mac LAN IP>:8000` it is missing; nothing
+  may call it directly, or adding a recipe fails there.
 - `lib/rows.js` maps the five recipe tables to this shape and back (`rowsToRecipes`, `recipeToPayload`),
   ordered by `position`; `rowToProduct`, `productToRow`, `rowToNutrition` do the rest. The payload always carries
   `seasoning` on every ingredient and a `cooking` list (empty clears it); see §27 for why the database treats a
@@ -479,7 +482,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 177 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 179 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 

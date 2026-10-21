@@ -29,7 +29,7 @@ import * as state from '../state.js';
 import * as storage from '../storage.js';
 import { amountOpts, getAiKey } from '../prefs.js';
 import * as claude from '../claude.js';
-import { blankRecipe, blankStep, blankCooking } from '../lib/ids.js';
+import { blankRecipe, blankStep, blankCooking, newId } from '../lib/ids.js';
 import { validateRecipe } from '../lib/validate.js';
 import { removeIngredient, moveStep, toggleTag, stepLine } from '../lib/method.js';
 import { formatAmount } from '../lib/format.js';
@@ -201,7 +201,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     openScanner({
       forName: null,
       onProduct: (product) => {
-        const ing = { id: crypto.randomUUID(), name: product.name, qty: null, unit: product.basis === '100ml' ? 'ml' : product.basis === 'item' ? 'each' : 'g', productId: product.id };
+        const ing = { id: newId(), name: product.name, qty: null, unit: product.basis === '100ml' ? 'ml' : product.basis === 'item' ? 'each' : 'g', productId: product.id };
         openIngredientEditor({ ingredient: ing, isNew: true, onSave: (saved) => { draft.ingredients = [...draft.ingredients, saved]; render(); } });
       },
     });

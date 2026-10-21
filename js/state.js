@@ -5,6 +5,7 @@
 
 import * as storage from './storage.js';
 import { densityFor } from './lib/densities.js';
+import { newId } from './lib/ids.js';
 
 let state = {
   user: null,
@@ -118,7 +119,7 @@ export async function deleteRecipe(id) {
 // Saves a product (new or edited) and returns it with its id.
 export async function saveProduct(product) {
   requireOnline();
-  const withId = { ...product, id: product.id ?? crypto.randomUUID() };
+  const withId = { ...product, id: product.id ?? newId() };
   const saved = (await storage.saveProduct(withId, state.householdId)) ?? withId;
   const exists = state.products.some((p) => p.id === saved.id);
   set({ products: exists ? state.products.map((p) => (p.id === saved.id ? saved : p)) : [...state.products, saved] });

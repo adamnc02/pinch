@@ -151,7 +151,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (177 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (179 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying
