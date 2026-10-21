@@ -37,7 +37,7 @@ import { nutritionStatus } from '../lib/units.js';
 import { COOKING_METHODS, cookingLine, tempInputToC, tempForInput, looksLikeSeasoning } from '../lib/cooking.js';
 import { MEALS, mealLabel, splitMealPrefix, displayName } from '../lib/recipes.js';
 import { CUISINES, cuisineName } from '../lib/cuisines.js';
-import { splitRecipeText, draftFromImport, looksLikeUrl, hostOf, parseIngredientLine, servesFrom, mealFrom } from '../lib/parse.js';
+import { splitRecipeText, draftFromImport, looksLikeUrl, hostOf, parseIngredientLine, servesFrom, mealFrom, titleCase, stripListMarker } from '../lib/parse.js';
 import { openIngredientEditor } from './ingredient.js';
 import { openCheckIngredients } from './check.js';
 import { openScanner } from './scanner.js';
@@ -430,7 +430,8 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     for (const out of split) {
       const ing = recipe.ingredients.find((i) => i.sourceLine === out.line);
       if (!ing) continue;
-      ing.name = out.name || parseIngredientLine(out.line).name;
+      // Claude's name gets the same cleaning as the parser's.
+      ing.name = titleCase(stripListMarker(out.name).trim() || parseIngredientLine(out.line).name);
       ing.qty = out.qty;
       ing.unit = out.unit;
     }

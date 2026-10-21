@@ -1,5 +1,5 @@
 import { describe, test, assertEqual } from './kit.js';
-import { parseIngredientLine, splitRecipeText, draftFromImport, servesFrom, mealFrom, looksLikeUrl, hostOf } from '../js/lib/parse.js';
+import { parseIngredientLine, splitRecipeText, draftFromImport, servesFrom, mealFrom, looksLikeUrl, hostOf, titleCase, stripListMarker } from '../js/lib/parse.js';
 
 const p = (line) => {
   const r = parseIngredientLine(line);
@@ -101,6 +101,41 @@ describe('draftFromImport', () => {
 describe('small helpers', () => {
   test('servesFrom', () => {
     assertEqual([servesFrom('Serves 6'), servesFrom(['4', '4 servings']), servesFrom('Makes 12'), servesFrom('lots'), servesFrom(4)], [6, 4, 12, null, 4]);
+  });
+  test('a phone-note checklist: markers off, no title, numbered steps wrapped across lines', () => {
+    const note = '- [ ] 2kg chicken thigh\n- [ ] 1 tsp salt\n- [x] 1 tbsp ground cumin\n\n'
+      + '1. Add all the ingredients into a bowl and then add\nthe chicken thighs. Leave in the\nfridge for 24 hours\n'
+      + '2. Close the lid and cook for approx. 40 minutes or until\n75 degrees centigrade';
+    const r = splitRecipeText(note);
+    assertEqual(r.name, '');
+    assertEqual(r.ingredients, ['2kg chicken thigh', '1 tsp salt', '1 tbsp ground cumin']);
+    assertEqual(r.steps, [
+      'Add all the ingredients into a bowl and then add the chicken thighs. Leave in the fridge for 24 hours',
+      'Close the lid and cook for approx. 40 minutes or until 75 degrees centigrade']);
+  });
+  test('a checklist note with a title keeps it', () => {
+    const r = splitRecipeText('Rotisserie thighs\n☐ 2kg chicken thigh\n• 1 tsp salt\n1. Marinate.\n2. Cook.');
+    assertEqual([r.name, r.ingredients.length, r.steps], ['Rotisserie thighs', 2, ['Marinate.', 'Cook.']]);
+  });
+  test('wrapped lines join under a Method heading too; unnumbered steps stay one per line', () => {
+    assertEqual(splitRecipeText('X\nIngredients\n1 egg\nMethod\n1. Whisk the\negg.\n2. Fry it.').steps, ['Whisk the egg.', 'Fry it.']);
+    assertEqual(splitRecipeText('X\nIngredients\n1 egg\nMethod\nWhisk the egg.\nFry it.').steps, ['Whisk the egg.', 'Fry it.']);
+  });
+  test('list markers never reach a name', () => {
+    assertEqual(['- [ ] 250ml olive oil', '* [x] salt', '☐ 2 eggs', '- 1 onion'].map(stripListMarker), ['250ml olive oil', 'salt', '2 eggs', '1 onion']);
+    assertEqual(p('- [ ] 250ml olive oil'), [250, 'ml', 'Olive oil', true]);
+  });
+  test('titleCase: every lower-case word, small words and capitals left alone', () => {
+    assertEqual(titleCase('chicken thigh'), 'Chicken Thigh');
+    assertEqual(titleCase('Self-raising flour'), 'Self-Raising Flour');
+    assertEqual(titleCase('salt and pepper'), 'Salt and Pepper');
+    assertEqual(titleCase("McVitie's digestives, BBQ sauce"), "McVitie's Digestives, BBQ Sauce");
+    assertEqual(titleCase('of course'), 'Of Course');
+  });
+  test('an import draft is in title case', () => {
+    let k = 0;
+    const { recipe } = draftFromImport({ name: 'rotisserie thighs', recipeIngredient: ['2kg chicken thigh'], recipeInstructions: [] }, { newId: () => `t${++k}` });
+    assertEqual([recipe.name, recipe.ingredients[0].name], ['Rotisserie Thighs', 'Chicken Thigh']);
   });
   test('mealFrom files sauces, dressings and condiments under sauce', () => {
     assertEqual([mealFrom('Sauce'), mealFrom('Salad dressing'), mealFrom('Condiments'), mealFrom('Dips'), mealFrom('Main course')], ['sauce', 'sauce', 'sauce', 'sauce', 'dinner']);

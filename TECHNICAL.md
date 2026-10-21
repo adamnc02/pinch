@@ -347,8 +347,16 @@ then **Read recipe**. A link shows "Link found · site".
   (`claude.recipeFromPage`). With no key saved, the cook is asked to add one in Settings or paste the
   text. A page that can't be read (many large sites refuse server-side fetches with 403) asks for the
   text instead.
-- **Text** is split in the app by `splitRecipeText()` (Ingredients / Method headings, or short
-  amount lines vs. sentences).
+- **Text** is split in the app by `splitRecipeText()`: Ingredients / Method headings; or, for a phone
+  note with a checklist and numbered steps, the list lines are ingredients and the numbered lines the
+  method (a title only if the first line is neither); otherwise short amount lines vs. sentences.
+  List markers (`- [ ]`, `- [x]`, `☐`, `•`, `-`, `*`) are taken off every ingredient line
+  (`stripListMarker`), and when a method is numbered, a line that doesn't start a new number continues
+  the step above it (`joinWrapped`) — notes wrap long steps across lines.
+- **Names are title case** (`titleCase`): every all-lower-case word capitalised, small joining words
+  (and, of, with…) left alone after the first, any word part already containing a capital kept as
+  written ("McVitie's", "BBQ"), hyphenated parts each ("Self-Raising"). Applied in `draftFromImport` to
+  the recipe and ingredient names, and to the names Claude returns for unread lines.
 - Either way `draftFromImport()` runs `parseIngredientLine()` on every ingredient line, gives every
   row a fresh id, maps the category to a meal (sauce, dressing, condiment, marinade, dip, gravy, salsa
   and pesto are `sauce`) and the cuisine words to a code, and pre-tags each step
@@ -469,7 +477,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 164 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 171 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 

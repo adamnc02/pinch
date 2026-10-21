@@ -18,7 +18,7 @@ import { toggle } from '../components/toggle.js';
 import { makeBackup, parseBackup } from '../lib/backup.js';
 import { openBlocImport } from './bloc-import.js';
 
-export const VERSION = '1.2';
+export const VERSION = '1.2.1';
 
 export function openSettings({ onSignOut }) {
   const body = h('div', { class: 'settings' });

@@ -4,6 +4,7 @@
 // parseIngredientLine("2 x 400g tins chickpeas, drained") → { qty, unit, name, ok }
 // splitRecipeText(pastedText) → { name, serves, ingredients[], steps[] }
 // draftFromImport(jsonLdShape, defaults) → { recipe, unparsed[] }
+// titleCase("chicken thigh") → "Chicken Thigh" (imported names only)
 
 import { cuisineFromText } from './cuisines.js';
 import { suggestTags } from './method.js';
@@ -34,6 +35,25 @@ const SEASONING = /\b(salt|pepper|seasoning)\b/i;
 const TO_TASTE = /\b(to taste|to serve|for serving|for garnish|to garnish|as needed|as required|optional|a pinch|pinch of|a handful|handful of|a drizzle|a splash|splash of|drizzle of|a little|some)\b/i;
 
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+// A list marker at the start of a line: "- [ ] ", "* [x] ", "☐ ", "• ", "- ".
+// Notes apps export checklists this way; the marker is never part of the text.
+const LIST_MARKER = /^\s*(?:[-*+•▢□◦·–]\s*)?(?:\[[ xX✓✔]?\]|[☐☑☒✓✔])?\s*/;
+export const stripListMarker = (s) => String(s ?? '').replace(LIST_MARKER, '');
+const hasListMarker = (s) => /^\s*(?:[-*+•▢□◦·–]\s|\[[ xX✓✔]?\]|[☐☑☒✓✔])/.test(String(s ?? ''));
+
+// Every all-lower-case word capitalised, small joining words left alone
+// (except first). A word with any capital ("McVitie's", "BBQ") is kept as
+// written, and hyphenated parts are capitalised each ("Self-Raising").
+const SMALL_WORDS = new Set(['a', 'an', 'and', 'or', 'of', 'in', 'on', 'with', 'the', 'to', 'for', 'at', 'from', 'into', 'de', 'la', 'del', 'di']);
+export function titleCase(text) {
+  return String(text ?? '').split(/(\s+)/).map((w, n) => {
+    if (/^\s+$/.test(w)) return w;
+    if (n > 0 && SMALL_WORDS.has(w.replace(/[^a-z]/g, ''))) return w;
+    return w.split('-').map((part) => (/[A-Z]/.test(part) ? part
+      : part.replace(/^([^a-z]*)([a-z])/, (m, lead, c) => lead + c.toUpperCase()))).join('-');
+  }).join('');
+}
 const round = (v) => Math.round(v * 1000) / 1000;
 
 // One number from the front of s: 1, 1.5, 1,5, 1/2, 1 1/2, 1½, ½.
@@ -73,7 +93,7 @@ function cleanName(s) {
 
 export function parseIngredientLine(text) {
   const line = String(text ?? '').replace(/\s+/g, ' ').trim();
-  const s0 = line.replace(/^[-•*▢□◦·–]\s*/, '').trim();
+  const s0 = stripListMarker(line).trim();
   const fail = { qty: null, unit: 'to taste', name: cap(cleanName(s0)) || s0, ok: false, line };
   if (!s0) return { ...fail, name: '' };
 
@@ -148,24 +168,53 @@ export function mealFrom(category) {
   return null;
 }
 
-const stripStepNumber = (s) => s.replace(/^\s*(?:step\s*)?\d+\s*[.):-]?\s+/i, '').trim();
+const STEP_NUMBER = /^\s*(?:step\s*)?\d+\s*[.):-]?\s+/i;
+const stripStepNumber = (s) => s.replace(STEP_NUMBER, '').trim();
+// "1. Add …" / "Step 2 …", but not an amount: "1 tsp salt" is an ingredient.
+const isNumberedStep = (l) => /^\s*(?:step\s*\d+|\d+\s*[.)])\s+/i.test(l);
+
+// A method written as numbered steps, wrapped across lines (a phone note):
+// every line that doesn't start a new number continues the step above it.
+// Without numbers each line is its own step.
+function joinWrapped(lines) {
+  if (!lines.some(isNumberedStep)) return lines.map(stripStepNumber).filter(Boolean);
+  const steps = [];
+  for (const l of lines) {
+    if (isNumberedStep(l) || !steps.length) steps.push(stripStepNumber(l));
+    else steps[steps.length - 1] = `${steps[steps.length - 1]} ${l.trim()}`;
+  }
+  return steps.filter(Boolean);
+}
 
 // Pasted text → { name, serves, ingredients: [line], steps: [line] }.
+// List markers ("- [ ] ") are taken off every ingredient line.
 export function splitRecipeText(text) {
   const lines = String(text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const serves = servesFrom(lines.find((l) => SERVES.test(l)) ?? '');
   const ingAt = lines.findIndex((l) => ING_HEAD.test(l));
   const methodAt = lines.findIndex((l) => METHOD_HEAD.test(l));
   const isMeta = (l) => SERVES.test(l) && l.length < 40;
+  const clean = (l) => stripListMarker(l).trim();
 
   if (ingAt >= 0) {
     const name = lines.slice(0, ingAt).find((l) => !isMeta(l)) ?? '';
     const end = methodAt > ingAt ? methodAt : lines.length;
-    const ingredients = lines.slice(ingAt + 1, end).filter((l) => !isMeta(l));
-    const steps = methodAt > ingAt ? lines.slice(methodAt + 1).map(stripStepNumber).filter(Boolean) : [];
-    return { name, serves, ingredients, steps };
+    const ingredients = lines.slice(ingAt + 1, end).filter((l) => !isMeta(l)).map(clean).filter(Boolean);
+    const steps = methodAt > ingAt ? joinWrapped(lines.slice(methodAt + 1)) : [];
+    return { name: clean(name), serves, ingredients, steps };
   }
-  // No headings: short lines that start with an amount are ingredients,
+
+  // No headings. A note with a list (markers) and numbered steps: list lines
+  // are ingredients, the numbered lines and their wrapped continuations are
+  // the method, and a title only exists if the first line is neither.
+  if (lines.some(hasListMarker) && lines.some(isNumberedStep)) {
+    const firstStep = lines.findIndex(isNumberedStep);
+    const head = lines.slice(0, firstStep).filter((l) => !isMeta(l));
+    const name = head.length && !hasListMarker(head[0]) && !parseIngredientLine(head[0]).qty ? head.shift() : '';
+    return { name, serves, ingredients: head.map(clean).filter(Boolean), steps: joinWrapped(lines.slice(firstStep)) };
+  }
+
+  // Otherwise: short lines that start with an amount are ingredients,
   // longer sentences are steps, and the first line is the name.
   const [first, ...rest] = lines;
   const ingredients = [];
@@ -173,9 +222,9 @@ export function splitRecipeText(text) {
   for (const l of rest) {
     if (isMeta(l)) continue;
     const p = parseIngredientLine(l);
-    if (p.ok && p.qty != null && l.length <= 70) ingredients.push(l);
+    if (p.ok && p.qty != null && l.length <= 70) ingredients.push(clean(l));
     else if (l.length > 40 || /^\s*(?:step\s*)?\d+[.)]/i.test(l)) steps.push(stripStepNumber(l));
-    else ingredients.push(l);
+    else ingredients.push(clean(l));
   }
   return { name: first ?? '', serves, ingredients, steps };
 }
@@ -183,19 +232,20 @@ export function splitRecipeText(text) {
 // An imported recipe ({ name, recipeYield, recipeIngredient[], recipeInstructions[],
 // recipeCuisine, recipeCategory } — the pinch-import function's shape, also
 // what splitRecipeText gives once renamed) → a draft recipe, every
-// ingredient and step with a fresh id, steps pre-tagged by name.
+// ingredient and step with a fresh id, steps pre-tagged by name, and the
+// recipe and ingredient names in title case.
 // `unparsed` lists the ingredient ids whose line the parser couldn't read.
 export function draftFromImport(src, { serves = null, meal = null, newId = () => crypto.randomUUID() } = {}) {
   const parsed = (src.recipeIngredient ?? []).map((line) => ({ id: newId(), ...parseIngredientLine(line) }));
   const ingredients = parsed.filter((p) => p.name).map((p) => ({
-    id: p.id, name: p.name, qty: p.qty, unit: p.unit, productId: null, sourceLine: p.line, itemGrams: p.itemGrams ?? null,
+    id: p.id, name: titleCase(p.name), qty: p.qty, unit: p.unit, productId: null, sourceLine: p.line, itemGrams: p.itemGrams ?? null,
   }));
   const steps = (src.recipeInstructions ?? []).map(String).map((t) => t.trim()).filter(Boolean)
     .map((text) => ({ id: newId(), text, ingredientIds: suggestTags(ingredients, text) }));
   return {
     recipe: {
       id: newId(),
-      name: String(src.name ?? '').trim(),
+      name: titleCase(stripListMarker(src.name).trim()),
       serves: serves ?? servesFrom(src.recipeYield) ?? 4,
       meal: meal ?? mealFrom(src.recipeCategory) ?? 'dinner',
       cuisine: cuisineFromText(src.recipeCuisine),

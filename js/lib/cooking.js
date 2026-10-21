@@ -85,8 +85,8 @@ export function cookingProblems(option) {
 // Names that are almost always a seasoning, matched as whole words.
 const SEASONINGS = [
   'salt', 'pepper', 'peppercorns', 'paprika', 'cayenne', 'chilli powder', 'chili powder', 'chilli flakes', 'chili flakes',
-  'cumin', 'coriander seeds', 'ground coriander', 'turmeric', 'garam masala', 'curry powder', 'cinnamon', 'nutmeg',
-  'cloves', 'cardamom', 'allspice', 'ginger powder', 'ground ginger', 'garlic powder', 'garlic salt', 'onion powder',
+  'cumin', 'coriander seeds', 'ground coriander', 'ground corriander', 'turmeric', 'garam masala', 'curry powder', 'cinnamon', 'nutmeg',
+  'cloves', 'cardamom', 'cardamon', 'allspice', 'ginger powder', 'ground ginger', 'garlic powder', 'garlic salt', 'onion powder',
   'oregano', 'thyme', 'rosemary', 'sage', 'bay leaf', 'bay leaves', 'dried basil', 'dried parsley', 'mixed herbs',
   'italian seasoning', 'herbes de provence', 'five spice', 'chinese five spice', 'smoked paprika', 'fennel seeds',
   'mustard seeds', 'saffron', 'sumac', 'zaatar', 'za atar', 'star anise', 'celery salt', 'seasoning', 'spice', 'spices',

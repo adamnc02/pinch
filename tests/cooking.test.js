@@ -57,6 +57,9 @@ describe('looksLikeSeasoning (a suggestion for a new ingredient)', () => {
     assertEqual(['Salt', 'Black pepper', 'Paprika', 'Smoked paprika', 'Cayenne Pepper', 'Garlic Salt', 'ground cumin', 'Dried oregano', 'Garam masala']
       .map(looksLikeSeasoning), [true, true, true, true, true, true, true, true, true]);
   });
+  test('common misspellings in phone notes', () => {
+    assertEqual(['Ground Corriander', 'Ground Cardamon'].map(looksLikeSeasoning), [true, true]);
+  });
   test('food that only shares a word is not', () => {
     assertEqual(['Red pepper', 'Bell peppers', 'Peppers', 'Garlic Paste', 'Chicken mince', 'Fish sauce', 'Saltimbocca', ''].map(looksLikeSeasoning),
       [false, false, false, false, false, false, false, false]);

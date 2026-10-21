@@ -5,7 +5,7 @@ scaling, unit conversion, method steps tagged with the ingredients they use, and
 nutrition from a shared product library that each person's BLOC can read.
 
 Live at **https://adamnc02.github.io/pinch/**, served by GitHub Pages from the root of `main`, and
-made to be installed on an iPhone Home Screen. **Status: 1.2.**
+made to be installed on an iPhone Home Screen. **Status: 1.2.1.**
 
 ## Stack
 
@@ -29,7 +29,8 @@ tests and the `pinch-import` Edge Function live in
   cook it after the method (Air fryer · 12 min · 200°C, with a note), and per-serving kcal, protein, carbs
   and fat.
 - **Adding recipes:** type them in (with Scan barcode or Add manually for each ingredient), or import
-  from the web by pasting a link or the recipe's text. Either way the result lands in **Check
+  from the web by pasting a link or the recipe's text (a phone note's checklist and wrapped numbered steps
+  included; names come out in title case). Either way the result lands in **Check
   ingredients**, which links each ingredient to a product. Nothing needs a barcode to be saved: an
   ingredient without a product is marked "needs nutrition" and can be scanned later from the recipe.
 - **Seasonings:** an ingredient marked Seasoning (spices, herbs, salt) is never counted for nutrition,
@@ -149,7 +150,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (164 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (171 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying
