@@ -1,6 +1,7 @@
 import { describe, test, assertEqual } from './kit.js';
 import {
   cToF, fToC, formatTemp, tempInputToC, tempForInput, formatMinutes, cookingLine, cookingProblems, methodLabel, looksLikeSeasoning,
+  suggestCooking,
 } from '../js/lib/cooking.js';
 
 describe('temperatures (stored °C, shown °C or °F)', () => {
@@ -63,5 +64,37 @@ describe('looksLikeSeasoning (a suggestion for a new ingredient)', () => {
   test('food that only shares a word is not', () => {
     assertEqual(['Red pepper', 'Bell peppers', 'Peppers', 'Garlic Paste', 'Chicken mince', 'Fish sauce', 'Saltimbocca', ''].map(looksLikeSeasoning),
       [false, false, false, false, false, false, false, false]);
+  });
+});
+
+describe('suggestCooking (cooking options read from a method)', () => {
+  const opt = (method, minutes, tempC, note = null) => ({ method, minutes, tempC, note });
+  test('a rotisserie BBQ note: time from the next step, the internal temperature as a note, not the marinade', () => {
+    assertEqual(suggestCooking([
+      'Add all the ingredients into a bowl and the chicken thighs. Cover and leave to marinate in the fridge for 24 hours',
+      'Remove the warming shelf for the grill and prepare the rotisserie. Remember to use a grill plate under the rotisserie',
+      'Return chicken to the rotisserie, fire up the two outer burners to low and start the rotisserie motor.',
+      'Close the lid and cook for approx. 40 minutes or until you have an internal temperature of 75 degrees centigrade',
+    ]), [opt('bbq', 40, null, 'Until 75°C inside')]);
+  });
+  test('🚨 an internal temperature is never the cooking temperature', () => {
+    const [o] = suggestCooking(['Roast at 425°F for 1 hour 15 minutes, until a thermometer reads 165°F.']);
+    assertEqual([o.method, o.minutes, o.tempC, o.note], ['oven', 75, 218, 'Until 74°C inside']);
+  });
+  test('"200°C (180°C fan)" and "200C/180C fan" give an oven and a fan oven, sharing the time', () => {
+    const both = [opt('oven', 25, 200), opt('fan_oven', 25, 180)];
+    assertEqual(suggestCooking(['Preheat the oven to 200°C (180°C fan).', 'Bake for 25-30 minutes until golden.']), both);
+    assertEqual(suggestCooking(['Heat the oven to 200C/180C fan and bake for 25 mins.']), both);
+  });
+  test('air fryer, slow cooker, microwave and grill', () => {
+    assertEqual(suggestCooking(['Cook in the air fryer at 190C for 12 mins, turning halfway.']), [opt('air_fryer', 12, 190)]);
+    assertEqual(suggestCooking(['Put everything in the slow cooker on low for 8 hours.']), [opt('slow_cooker', 480, null)]);
+    assertEqual(suggestCooking(['Microwave on high for 2 minutes.']), [opt('microwave', 2, null)]);
+    assertEqual(suggestCooking(['Marinate in the fridge for 2 hours.', 'Grill for 8 minutes each side.']), [opt('grill', 8, null)]);
+  });
+  test('nothing from hob work, a grill pan, or a method only mentioned', () => {
+    assertEqual(suggestCooking(['Simmer for 15 minutes.', 'Season to taste.']), []);
+    assertEqual(suggestCooking(['Heat a grill pan and sear for 3 minutes.']), []);
+    assertEqual(suggestCooking(['Serve warm from the oven.']), []);
   });
 });

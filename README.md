@@ -30,7 +30,8 @@ tests and the `pinch-import` Edge Function live in
   and fat.
 - **Adding recipes:** type them in (with Scan barcode or Add manually for each ingredient), or import
   from the web by pasting a link or the recipe's text (a phone note's checklist and wrapped numbered steps
-  included; names come out in title case). Either way the result lands in **Check
+  included; names come out in title case, and the cooking options the method states are filled in). Either way
+  the result lands in **Check
   ingredients**, which links each ingredient to a product. Nothing needs a barcode to be saved: an
   ingredient without a product is marked "needs nutrition" and can be scanned later from the recipe.
 - **Seasonings:** an ingredient marked Seasoning (spices, herbs, salt) is never counted for nutrition,
@@ -150,7 +151,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (171 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (177 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying

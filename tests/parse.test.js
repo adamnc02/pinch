@@ -137,6 +137,11 @@ describe('small helpers', () => {
     const { recipe } = draftFromImport({ name: 'rotisserie thighs', recipeIngredient: ['2kg chicken thigh'], recipeInstructions: [] }, { newId: () => `t${++k}` });
     assertEqual([recipe.name, recipe.ingredients[0].name], ['Rotisserie Thighs', 'Chicken Thigh']);
   });
+  test('an import draft starts with the cooking options its method states', () => {
+    let k = 0;
+    const { recipe } = draftFromImport({ name: 'x', recipeIngredient: [], recipeInstructions: ['Air fry at 200°C for 12 minutes.'] }, { newId: () => `c${++k}` });
+    assertEqual(recipe.cooking.map((c) => [c.method, c.minutes, c.tempC, c.name, typeof c.id]), [['air_fryer', 12, 200, null, 'string']]);
+  });
   test('mealFrom files sauces, dressings and condiments under sauce', () => {
     assertEqual([mealFrom('Sauce'), mealFrom('Salad dressing'), mealFrom('Condiments'), mealFrom('Dips'), mealFrom('Main course')], ['sauce', 'sauce', 'sauce', 'sauce', 'dinner']);
   });

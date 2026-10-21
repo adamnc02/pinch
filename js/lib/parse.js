@@ -8,6 +8,7 @@
 
 import { cuisineFromText } from './cuisines.js';
 import { suggestTags } from './method.js';
+import { suggestCooking } from './cooking.js';
 
 const FRACTIONS = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875, '⅕': 0.2 };
 const FRAC = Object.keys(FRACTIONS).join('');
@@ -233,7 +234,8 @@ export function splitRecipeText(text) {
 // recipeCuisine, recipeCategory } — the pinch-import function's shape, also
 // what splitRecipeText gives once renamed) → a draft recipe, every
 // ingredient and step with a fresh id, steps pre-tagged by name, and the
-// recipe and ingredient names in title case.
+// recipe and ingredient names in title case, and cooking options read from
+// the method (suggestCooking) for the cook to check.
 // `unparsed` lists the ingredient ids whose line the parser couldn't read.
 export function draftFromImport(src, { serves = null, meal = null, newId = () => crypto.randomUUID() } = {}) {
   const parsed = (src.recipeIngredient ?? []).map((line) => ({ id: newId(), ...parseIngredientLine(line) }));
@@ -253,6 +255,7 @@ export function draftFromImport(src, { serves = null, meal = null, newId = () =>
       blocRecipeId: null,
       ingredients,
       steps,
+      cooking: suggestCooking(steps.map((s) => s.text)).map((c) => ({ id: newId(), name: null, ...c })),
     },
     unparsed: parsed.filter((p) => !p.ok && p.name).map((p) => p.id),
   };

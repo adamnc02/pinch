@@ -357,6 +357,8 @@ then **Read recipe**. A link shows "Link found · site".
   (and, of, with…) left alone after the first, any word part already containing a capital kept as
   written ("McVitie's", "BBQ"), hyphenated parts each ("Self-Raising"). Applied in `draftFromImport` to
   the recipe and ingredient names, and to the names Claude returns for unread lines.
+- **Cooking options are read from the method** (`suggestCooking`, §27) and the draft starts with them;
+  the cook sees them in the editor's Cooking field and can change or delete them.
 - Either way `draftFromImport()` runs `parseIngredientLine()` on every ingredient line, gives every
   row a fresh id, maps the category to a meal (sauce, dressing, condiment, marinade, dip, gravy, salsa
   and pesto are `sauce`) and the cuisine words to a code, and pre-tags each step
@@ -477,7 +479,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 171 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 177 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 
@@ -606,3 +608,15 @@ microwave bbq slow_cooker other`, `name` (required for, and only for, `other`), 
   deleting every option still clears them. Treating a missing key as "none" would make an un-updated phone
   wipe every recipe's cooking options the first time it saves.
 - Cooking options are recipe data, not nutrition: BLOC's views don't carry them.
+- **Read from an imported method** by `lib/cooking.js` `suggestCooking(stepTexts)`, at most one option per
+  method:
+  - A step names the method: air fryer, slow cooker, microwave, BBQ / barbecue / rotisserie, fan oven,
+    oven / bake / roast, grill (not "grill plate" or "grill pan"). Hob work (fry, simmer) is never an
+    option. A time or temperature belongs to its own step's method, or else the last one named before it
+    ("…start the rotisserie motor." then "Close the lid and cook for 40 minutes"). A step about the fridge,
+    marinating, resting, chilling, soaking or freezing gives no time.
+  - "200°C (180°C fan)" / "200C/180C fan": Oven at 200 and Fan oven at 180, and an oven step's time goes to
+    both. °F is converted to °C. A method mentioned with no time, temperature or note is dropped.
+  - 🚨 **An internal temperature is never `temp_c`.** "until the internal temperature is 75°C", "a
+    thermometer reads 165°F" is how hot the food must get, so it becomes the note "Until 75°C inside".
+    Saving it as the cooking temperature would tell the cook to cook at 75 °C.

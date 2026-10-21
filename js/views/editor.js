@@ -401,7 +401,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
         importNote = { error: true, text: 'No ingredients were found. Check the text has a list of ingredients.' };
         return;
       }
-      draft = { ...recipe, id: draft.id, cooking: draft.cooking ?? [] };
+      draft = { ...recipe, id: draft.id };
       mode = 'enter';
       const toMethod = () => requestAnimationFrame(() => body.querySelector('.method')?.scrollIntoView({ block: 'start' }));
       if (!state.get().nutritionOn) { editingStep = null; toMethod(); return; }

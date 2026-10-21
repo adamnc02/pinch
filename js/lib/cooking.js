@@ -100,3 +100,96 @@ export function looksLikeSeasoning(name) {
   if (w.trim() === '' || NOT_SEASONING.test(w)) return false;
   return SEASONINGS.some((s) => w.includes(` ${s} `));
 }
+
+// ── Cooking options read from a method ────────────────────────────────────
+// suggestCooking(stepTexts) → [{ method, minutes, tempC, note }], at most one
+// per method, for an import to start with (the cook can edit or delete them).
+//
+// · A step names a method (air fryer, slow cooker, microwave, BBQ /
+//   barbecue / rotisserie, fan oven or "°C fan", oven / bake / roast,
+//   grill). Hob work is not an option: frying and simmering are the method
+//   itself, not a way to cook the finished dish.
+// · A time or a temperature belongs to the method named in its own step, or
+//   else the last one named before it ("Light the BBQ." … "Cook for 40
+//   minutes."). A step about the fridge, marinating, resting, chilling or
+//   soaking never gives a time ("marinate for 24 hours").
+// · 🚨 An INTERNAL temperature ("until the internal temperature is 75°C",
+//   "a probe reads 75°C") is how hot the food must get, not the heat to cook
+//   at: it becomes the note "Until 75°C inside", never temp_c.
+// · An oven step with two temperatures, "200°C (180°C fan)" or "200C/180C
+//   fan", gives an Oven option and a Fan oven option; a time in an oven step
+//   goes to both.
+const STEP_METHODS = [
+  ['air_fryer', /\bair[\s-]?fr(?:y|ier|yer|ying)\b/],
+  ['slow_cooker', /\bslow[\s-]?cooker\b/],
+  ['microwave', /\bmicrowave\b/],
+  ['bbq', /\b(?:bbq|barbecue|barbeque|rotisserie)\b/],
+  ['fan_oven', /\bfan(?:[\s-]assisted)?\s+oven\b/],
+  ['oven', /\boven\b|\bbake\b|\broast\b/],
+  ['grill', /\bgrill\b(?!\s+(?:plate|pan))/],
+];
+const NOT_COOKING = /\b(?:fridge|refrigerat\w*|marinat\w*|rest(?:ing)?|chill\w*|soak\w*|overnight|freez\w*)\b/;
+const TEMP = /(\d{2,3})\s*(?:°|º|degrees?)\s*(c|celsius|centigrade|f|fahrenheit)?\b|(\d{2,3})\s*(c|f)\b/g;
+const INTERNAL = /\b(?:internal|core|inside|probe|thermometer|reaches?)\b[^.]{0,40}$/;
+const DURATION = /(\d+(?:[.,]\d+)?)\s*(?:(?:-|–|to)\s*\d+(?:[.,]\d+)?\s*)?(hours?|hrs?|h|minutes?|mins?|m)\b(?:\s*(?:and\s*)?(\d+)\s*(?:minutes?|mins?|m)\b)?/;
+
+function methodIn(text) {
+  return STEP_METHODS.find(([, re]) => re.test(text))?.[0] ?? null;
+}
+
+function minutesIn(text) {
+  const m = text.match(DURATION);
+  if (!m) return null;
+  const n = Number(m[1].replace(',', '.'));
+  const mins = /^h/.test(m[2]) ? n * 60 + Number(m[3] ?? 0) : n;
+  const whole = Math.round(mins);
+  return whole >= 1 && whole <= MINUTES_MAX ? whole : null;
+}
+
+// The first cooking temperature in °C, the first one marked "fan", and an
+// internal one if stated.
+function tempsIn(text) {
+  let cook = null;
+  let fan = null;
+  let inside = null;
+  for (const m of text.matchAll(TEMP)) {
+    const n = Number(m[1] ?? m[3]);
+    const scale = (m[2] ?? m[4] ?? 'c')[0];
+    const c = Math.round(scale === 'f' ? fToC(n) : n);
+    if (INTERNAL.test(text.slice(0, m.index))) { inside ??= c; continue; }
+    if (c < TEMP_MIN_C || c > TEMP_MAX_C) continue;
+    if (/^\s*\)?\s*fan\b/.test(text.slice(m.index + m[0].length))) fan ??= c;
+    else cook ??= c;
+  }
+  return { cook, fan, inside };
+}
+const OVENS = ['oven', 'fan_oven'];
+
+export function suggestCooking(stepTexts) {
+  const found = new Map();
+  let current = null;
+  const get = (method) => {
+    if (!found.has(method)) found.set(method, { method, minutes: null, tempC: null, note: null });
+    return found.get(method);
+  };
+  for (const raw of stepTexts ?? []) {
+    const text = String(raw).toLowerCase();
+    current = methodIn(text) ?? current;
+    if (!current) continue;
+    const { cook, fan, inside } = tempsIn(text);
+    const option = get(current);
+    if (OVENS.includes(current)) {
+      if (cook != null) get(current === 'fan_oven' && fan == null ? 'fan_oven' : 'oven').tempC ??= cook;
+      if (fan != null) get('fan_oven').tempC ??= fan;
+    } else {
+      option.tempC ??= cook;
+    }
+    if (inside != null && option.note == null) option.note = `Until ${inside}°C inside`;
+    const minutes = NOT_COOKING.test(text) ? null : minutesIn(text);
+    if (minutes != null) {
+      for (const o of OVENS.includes(current) ? OVENS.filter((k) => found.has(k)).map(get) : [option]) o.minutes ??= minutes;
+    }
+  }
+  // A method only mentioned in passing (no time, temperature or note) is noise.
+  return [...found.values()].filter((o) => o.minutes != null || o.tempC != null || o.note != null);
+}
