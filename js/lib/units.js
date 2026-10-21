@@ -69,9 +69,10 @@ export function unitOptions(unit, density) {
 // Mirrors pinch.ingredient_nutrition so Check ingredients can show the
 // status of a draft that isn't saved yet. The saved figures come only from
 // the view. Returns 'ok' | 'unconvertible' | 'no_product' | 'not_counted'.
+// A seasoning is never counted, whatever its amount or product.
 export function nutritionStatus(ingredient, product, density) {
   const { qty, unit } = ingredient;
-  if (qty == null || unit === 'to taste') return 'not_counted';
+  if (ingredient.seasoning || qty == null || unit === 'to taste') return 'not_counted';
   if (!product) return 'no_product';
   const gpi = product.gramsPerItem;
   const ok = {

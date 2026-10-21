@@ -9,7 +9,10 @@
 //   the ingredient's own unit plus cup, and an amount in cups can go to g
 //   or ml. g ↔ cup needs a density; without one that option is disabled,
 //   with the reason. g ↔ ml is never offered.
-// · "To taste" rows are listed as not counted.
+// · "To taste" rows and seasonings are listed as not counted. An open row
+//   can be marked a seasoning (it then needs nothing) or unmarked.
+// · A linked product can be edited from its row (Edit product): that is how
+//   a per-100 g product gets the weight of one item that "2 each" needs.
 //
 // Works on a draft: onChange(recipe) after every edit, onFinish(recipe) at
 // the end. With `saveOnFinish`, the finish button saves the recipe itself.
@@ -20,7 +23,7 @@ import { openSheet, sheetHead, confirmSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import * as state from '../state.js';
 import { amountOpts } from '../prefs.js';
-import { convert, unitOptions, nutritionStatus } from '../lib/units.js';
+import { convert, unitOptions, nutritionStatus, isWeight } from '../lib/units.js';
 import { formatAmount, qtyInput, quarters, isQuarter, trimNumber } from '../lib/format.js';
 import { removeIngredient } from '../lib/method.js';
 import { openIngredientEditor, productSummary } from './ingredient.js';
@@ -91,7 +94,7 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
   function row(i) {
     const s = status(i);
     const p = product(i);
-    const sub = s === 'not_counted' ? 'To taste · not counted'
+    const sub = s === 'not_counted' ? (i.seasoning ? 'Seasoning · not counted' : 'To taste · not counted')
       : s === 'ok' ? p.name
         : s === 'unconvertible' ? `${p.name} · this amount can’t be counted against it`
           : 'Needs nutrition';
@@ -107,7 +110,9 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
     const density = state.densityForIngredient(i);
     const opts = i.qty == null ? [] : unitOptions(i.unit, density);
     const sub = [
-      s === 'ok' ? `Linked · ${productSummary(p)}` : s === 'unconvertible' ? `${p.name} is ${p.basis === 'item' ? 'per item' : `per ${p.basis.replace('100', '100 ')}`}, so this amount can’t be counted` : s === 'not_counted' ? 'Not counted' : 'Needs nutrition',
+      s === 'ok' ? `Linked · ${productSummary(p)}`
+        : s === 'unconvertible' ? `${p.name} is ${p.basis === 'item' ? 'per item' : `per ${p.basis.replace('100', '100 ')}`}, so this amount can’t be counted${itemWeightHelps(i, p) ? ' until it has the weight of one' : ''}`
+          : s === 'not_counted' ? (i.seasoning ? 'Seasoning · not counted' : 'Not counted') : 'Needs nutrition',
       i.sourceLine ? `imported as “${i.sourceLine}”` : null,
     ].filter(Boolean).join(' · ');
 
@@ -135,12 +140,35 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
           onclick: () => switchUnit(i, o.unit, density),
         }, o.unit))) : h('span', { class: 'unit-only' }, i.unit)),
       i.qty == null ? null : conversionLine(i, density, opts),
-      h('div', { class: 'acts' },
-        h('button', { class: 'btn primary', type: 'button', onclick: () => scanFor(i) }, icon('barcode'), 'Scan'),
-        h('button', { class: 'btn secondary', type: 'button', onclick: () => editFull(i) }, icon('search'), 'Products')),
-      h('div', { class: 'more' },
-        h('button', { class: 'btn quiet', type: 'button', onclick: () => openProductForm({ initial: { name: i.name }, onSaved: (prod) => linkTo(i, prod) }) }, 'From the label'),
-        h('button', { class: 'btn quiet muted', type: 'button', onclick: () => { skipped.add(i.id); open = nextOpen(); render(); } }, 'Skip for now')));
+      i.seasoning
+        ? h('div', { class: 'more' },
+          h('button', { class: 'btn quiet', type: 'button', onclick: () => setIng(i.id, { seasoning: false }) }, 'Not a seasoning'))
+        : [
+          h('div', { class: 'acts' },
+            h('button', { class: 'btn primary', type: 'button', onclick: () => scanFor(i) }, icon('barcode'), 'Scan'),
+            p ? h('button', { class: 'btn secondary', type: 'button', onclick: () => editProduct(p) }, icon('pencil'), 'Edit product')
+              : h('button', { class: 'btn secondary', type: 'button', onclick: () => editFull(i) }, icon('search'), 'Products')),
+          h('div', { class: 'more' },
+            p ? h('button', { class: 'btn quiet', type: 'button', onclick: () => editFull(i) }, 'Products')
+              : h('button', { class: 'btn quiet', type: 'button', onclick: () => openProductForm({ initial: { name: i.name }, onSaved: (prod) => linkTo(i, prod) }) }, 'From the label'),
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => markSeasoning(i) }, icon('leaf'), 'Seasoning'),
+            h('button', { class: 'btn quiet muted', type: 'button', onclick: () => { skipped.add(i.id); open = nextOpen(); render(); } }, 'Skip for now')),
+        ]);
+  }
+
+  // The amount fails only because the product doesn't know what one weighs.
+  const itemWeightHelps = (i, p) => p && !p.gramsPerItem && ((i.unit === 'each' && p.basis === '100g') || (isWeight(i.unit) && p.basis === 'item'));
+
+  function markSeasoning(i) {
+    setIng(i.id, { seasoning: true });
+    open = nextOpen();
+    render();
+  }
+
+  // Edits the product itself (every recipe using it follows); this row's
+  // status re-reads it on render.
+  function editProduct(p) {
+    openProductForm({ initial: p, title: 'Edit product', onSaved: () => { open = nextOpen(); render(); } });
   }
 
   // "Same as 375 ml · about 200 g (flour density)", and the reason when an

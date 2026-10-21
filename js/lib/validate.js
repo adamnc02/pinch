@@ -5,6 +5,7 @@
 
 import { UNITS } from './units.js';
 import { MEALS, displayName } from './recipes.js';
+import { cookingProblems } from './cooking.js';
 
 export function validateRecipe(recipe) {
   const problems = [];
@@ -14,7 +15,7 @@ export function validateRecipe(recipe) {
   if (!Number.isInteger(recipe.serves) || recipe.serves < 1 || recipe.serves > 100) {
     add('serves', 'Serves must be a whole number from 1 to 100.');
   }
-  if (!MEALS.includes(recipe.meal)) add('meal', 'Choose Breakfast, Lunch or Dinner.');
+  if (!MEALS.includes(recipe.meal)) add('meal', 'Choose Breakfast, Lunch, Dinner or Sauces.');
   if (recipe.cuisine != null && !/^[A-Z]{2}$/.test(recipe.cuisine)) add('cuisine', 'Choose a cuisine from the list.');
 
   const ids = new Set();
@@ -33,5 +34,7 @@ export function validateRecipe(recipe) {
       add(`steps.${n}`, `Step ${n + 1} is tagged with an ingredient that isn't in this recipe.`);
     }
   });
+
+  (recipe.cooking ?? []).forEach((c, n) => cookingProblems(c).forEach((m) => add(`cooking.${n}`, m)));
   return problems;
 }

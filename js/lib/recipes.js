@@ -13,7 +13,7 @@ export function cuisinesInUse(recipes) {
 }
 
 // Home's grid. mode is 'meal' or 'cuisine'; value is null for All, else a
-// meal ('breakfast' | 'lunch' | 'dinner') or a cuisine code. Order is kept.
+// meal ('breakfast' | 'lunch' | 'dinner' | 'sauce') or a cuisine code. Order is kept.
 export function filterRecipes(recipes, { mode, value }) {
   if (value == null) return [...recipes];
   if (mode === 'meal') return recipes.filter((r) => r.meal === value);
@@ -51,5 +51,9 @@ export function sortRecipes(recipes) {
   return [...recipes].sort((a, b) => displayName(a.name).localeCompare(displayName(b.name), 'en', { sensitivity: 'base' }));
 }
 
-export const MEALS = ['breakfast', 'lunch', 'dinner'];
-export const mealLabel = (meal) => (meal ? meal[0].toUpperCase() + meal.slice(1) : '');
+// Home's chips and the editor's meal buttons, in this order. A sauce is
+// filed under "Sauces"; BLOC, which builds "(Meal) " from the stored value,
+// shows it as "(Sauce) …".
+export const MEALS = ['breakfast', 'lunch', 'dinner', 'sauce'];
+const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', sauce: 'Sauces' };
+export const mealLabel = (meal) => (meal ? MEAL_LABELS[meal] ?? meal[0].toUpperCase() + meal.slice(1) : '');

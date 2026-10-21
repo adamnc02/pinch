@@ -142,6 +142,7 @@ export function servesFrom(value) {
 export function mealFrom(category) {
   const c = String(category ?? '').toLowerCase();
   if (/breakfast|brunch|porridge/.test(c)) return 'breakfast';
+  if (/sauce|dressing|condiment|marinade|\bdips?\b|gravy|salsa|pesto/.test(c)) return 'sauce';
   if (/dinner|main|supper/.test(c)) return 'dinner';
   if (/lunch|light|salad|sandwich|soup|snack/.test(c)) return 'lunch';
   return null;

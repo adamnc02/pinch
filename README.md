@@ -5,7 +5,7 @@ scaling, unit conversion, method steps tagged with the ingredients they use, and
 nutrition from a shared product library that each person's BLOC can read.
 
 Live at **https://adamnc02.github.io/pinch/**, served by GitHub Pages from the root of `main`, and
-made to be installed on an iPhone Home Screen. **Status: 1.1.**
+made to be installed on an iPhone Home Screen. **Status: 1.2.**
 
 ## Stack
 
@@ -22,22 +22,31 @@ tests and the `pinch-import` Edge Function live in
 
 ## What it does
 
-- **Home:** recipes as cards, by meal (Breakfast / Lunch / Dinner) or by cuisine (a chip per cuisine
+- **Home:** recipes as cards, by meal (Breakfast / Lunch / Dinner / Sauces) or by cuisine (a chip per cuisine
   in use, with its flag). A card shows its photo, or its cuisine's flag.
 - **The recipe sheet:** a servings stepper that rescales every amount one serving at a time,
-  Ingredients | Method with a card flip, each step's tagged ingredients in italics (scaled), and
-  per-serving kcal, protein, carbs and fat.
+  Ingredients | Method with a card flip, each step's tagged ingredients in italics (scaled), the ways to
+  cook it after the method (Air fryer · 12 min · 200°C, with a note), and per-serving kcal, protein, carbs
+  and fat.
 - **Adding recipes:** type them in (with Scan barcode or Add manually for each ingredient), or import
   from the web by pasting a link or the recipe's text. Either way the result lands in **Check
-  ingredients**, which links each ingredient to a product.
+  ingredients**, which links each ingredient to a product. Nothing needs a barcode to be saved: an
+  ingredient without a product is marked "needs nutrition" and can be scanned later from the recipe.
+- **Seasonings:** an ingredient marked Seasoning (spices, herbs, salt) is never counted for nutrition,
+  never asks for a barcode and never stops BLOC using the recipe. Pinch suggests it for names like
+  paprika or cumin.
+- **Cooking options:** any number per recipe, each a method (air fryer, oven, fan oven, hob, grill,
+  microwave, BBQ, slow cooker or your own), a time, a temperature and a note.
 - **Products:** the household's library, found by barcode (Open Food Facts), by name, or typed in from
-  the label. Products hold all the nutrition.
+  the label. Products hold all the nutrition, and a linked product can be edited from the ingredient —
+  including the weight of one item, which "2 eggs" needs against a per-100 g product.
 - **Send to Listly:** long-press a recipe card (or tap the basket on a recipe) to put its ingredients, scaled to the
   servings you choose, on one of the household's Listly shopping lists as "Plain flour (500 g)". Items already on that
   list, and "to taste" ones, start unticked.
 - **Tablets:** a wider grid and centred panels, and Ingredients and Method side by side (a switch in Settings).
 - **Settings:** theme, side by side, Nutrition and barcodes (off hides nutrition and the barcode prompts, for people
-  who don't use BLOC; saved on the account), amounts original / as written / metric / cups, cup size, the household code, an optional
+  who don't use BLOC; saved on the account), amounts original / as written / metric / cups, cup size, temperatures in °C or
+  °F (saved on the account), the household code, an optional
   Claude key (kept on the phone, as in BLOC), backup and restore, and the one-off import from a BLOC
   backup.
 
@@ -64,8 +73,8 @@ In cups mode a weighed ingredient with no density stays as written, with a note;
 
 Recipes and ingredients have no macro columns. Per-serving figures come only from
 `pinch.recipe_nutrition`; an ingredient whose amount can't reach its product's basis is reported
-missing, never estimated. The app's `nutritionStatus()` mirrors the rule only to show the status of a
-draft that isn't saved yet.
+missing, never estimated. A seasoning, like an ingredient "to taste", is not counted at all. The app's
+`nutritionStatus()` mirrors the rule only to show the status of a draft that isn't saved yet.
 
 ### Step tags are ingredient ids, never names or copied amounts.
 
@@ -76,8 +85,14 @@ by cascade in the database).
 
 ### A recipe is saved by one call, `pinch.save_recipe`, or not at all.
 
-The recipe, its ingredients, steps and tags go in one function call, which is one transaction. Do not
-replace it with several table writes: they can fail halfway.
+The recipe, its ingredients, steps, tags and cooking options go in one function call, which is one
+transaction. Do not replace it with several table writes: they can fail halfway. A payload without
+`seasoning` or `cooking` (a phone on an older Pinch) leaves those as stored; the app always sends both.
+
+### Temperatures are stored in °C.
+
+A cooking option's temperature is a whole number of °C. °F is only how a person chooses to read and type
+it.
 
 ### Everything is namespaced on the shared origin.
 
@@ -134,7 +149,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (141 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (164 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying

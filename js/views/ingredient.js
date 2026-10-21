@@ -11,12 +11,24 @@
 // can be saved without a product; it is then marked "needs nutrition".
 // With Nutrition and barcodes off, the product part is not shown at all, and
 // a product already linked stays linked.
+//
+// · Seasoning (a spice, herb, salt…): never counted, so no product part and
+//   no "needs nutrition". A NEW ingredient whose name looks like one starts
+//   with the switch on (looksLikeSeasoning) until the switch is touched; a
+//   saved ingredient is never changed for the cook.
+// · A linked product can be edited here (it changes in every recipe that
+//   uses it). When the amount can't be counted only because the product has
+//   no weight of one item ("2 each" against a per-100 g product), the sheet
+//   asks for that weight and saves it on the product.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
 import { openSheet, sheetHead } from '../components/sheet.js';
 import * as state from '../state.js';
-import { UNITS } from '../lib/units.js';
+import { UNITS, isWeight, nutritionStatus } from '../lib/units.js';
+import { looksLikeSeasoning } from '../lib/cooking.js';
+import { toggle } from '../components/toggle.js';
+import { toast } from '../components/toast.js';
 import { qtyInput, trimNumber, isQuarter } from '../lib/format.js';
 import { stepper } from '../components/stepper.js';
 import { blankIngredient } from '../lib/ids.js';
@@ -35,24 +47,42 @@ export const productSummary = (p) => {
 
 export function openIngredientEditor({ ingredient = null, isNew = false, onSave, onDelete = null, title = null }) {
   const editing = Boolean(ingredient) && !isNew;
-  const ing = structuredClone(ingredient ?? blankIngredient());
+  const ing = { seasoning: false, ...structuredClone(ingredient ?? blankIngredient()) };
   let qtyText = qtyInput(ing.qty);
   let error = null;
+  // Only a brand-new ingredient follows its name; a saved one keeps its flag.
+  let seasoningTouched = editing || Boolean(ingredient?.seasoning);
+  if (!seasoningTouched && ing.name) ing.seasoning = looksLikeSeasoning(ing.name);
+  let itemGramsText = '';
 
   const body = h('div', { class: 'ingredient' });
   const sheet = openSheet(body, { kind: 'bottom', label: title ?? (editing ? 'Edit ingredient' : 'Add ingredient') });
 
   function render() {
-    const nutritionOn = state.get().nutritionOn;
+    // With nutrition off, or for a seasoning, there is no product part.
+    const nutritionOn = state.get().nutritionOn && !ing.seasoning;
     const product = state.getProduct(ing.productId);
     const suggestions = product || !nutritionOn ? [] : state.searchProducts(ing.name, 4);
+    const seasoningSwitch = toggle({ on: ing.seasoning, label: 'Seasoning', onChange: (on) => { seasoningTouched = true; ing.seasoning = on; render(); } });
     const nameInput = h('input', {
       id: 'in', class: 'input', value: ing.name, placeholder: 'e.g. Chickpeas', autocomplete: 'off', autofocus: !ing.name,
-      oninput: (e) => { ing.name = e.target.value; renderSuggestions(); },
+      oninput: (e) => {
+        ing.name = e.target.value;
+        if (!seasoningTouched && looksLikeSeasoning(ing.name) !== ing.seasoning) {
+          ing.seasoning = !ing.seasoning;
+          // Re-render keeps the caret: the name input is rebuilt with the same value.
+          const at = e.target.selectionStart;
+          render();
+          const el = body.querySelector('#in');
+          el?.focus(); el?.setSelectionRange(at, at);
+          return;
+        }
+        renderSuggestions();
+      },
     });
     const suggestBox = h('div', { class: 'field' });
     function renderSuggestions() {
-      const list = state.getProduct(ing.productId) || !state.get().nutritionOn ? [] : state.searchProducts(ing.name, 4);
+      const list = state.getProduct(ing.productId) || !state.get().nutritionOn || ing.seasoning ? [] : state.searchProducts(ing.name, 4);
       clear(suggestBox, list.length ? [
         h('span', { class: 'label' }, 'Nutrition · from your products'),
         list.map((p) => h('button', { class: 'suggest', type: 'button', onclick: () => link(p) },
@@ -75,12 +105,18 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
               oninput: (e) => { qtyText = e.target.value; },
             }),
             unitChips())),
+      h('div', { class: 'list' },
+        h('div', { class: 'row' }, icon('leaf'),
+          h('span', { class: 'txt' }, h('b', {}, 'Seasoning'), h('span', {}, 'A spice, herb or salt. Not counted for nutrition, and never asks for a barcode.')),
+          seasoningSwitch)),
       !nutritionOn ? null
         : product
         ? h('div', { class: 'field' }, h('span', { class: 'label' }, 'Nutrition'),
           h('div', { class: 'suggest linked' }, h('span', { class: 'pk' }, icon('check')),
             h('span', { class: 'txt' }, h('b', {}, product.name), h('span', {}, productSummary(product))),
-            h('button', { class: 'btn quiet', type: 'button', onclick: () => { ing.productId = null; render(); } }, 'Unlink')))
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => editProduct(product) }, 'Edit'),
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => { ing.productId = null; render(); } }, 'Unlink')),
+          itemWeightPrompt(product))
         : suggestBox,
       product || !nutritionOn ? null : h('div', { class: 'field' }, h('span', { class: 'label' }, suggestions.length ? 'Not there?' : 'Nutrition'),
         h('div', { class: 'two' },
@@ -120,6 +156,46 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
           'aria-label': f ? glyph : 'No part', onclick: () => set(whole, f),
         }, glyph)))),
       exact ? null : h('p', { class: 'hint' }, `Now ${trimNumber(qty, 2)} ${ing.unit}, kept as it is unless you pick.`));
+  }
+
+  // "2 each" against a per-100 g product (or grams against a per-item one)
+  // counts once the product knows what one item weighs.
+  function needsItemWeight(product) {
+    const qty = Number(qtyText.replace(',', '.'));
+    const draft = { ...ing, qty: qtyText.trim() && Number.isFinite(qty) && qty > 0 ? qty : null };
+    if (nutritionStatus(draft, product, state.densityForIngredient(draft)) !== 'unconvertible') return false;
+    return (ing.unit === 'each' && product.basis === '100g') || (isWeight(ing.unit) && product.basis === 'item');
+  }
+
+  function itemWeightPrompt(product) {
+    if (!needsItemWeight(product)) return null;
+    const one = ing.name.trim() || product.name;
+    return h('div', { class: 'item-weight' },
+      h('p', {}, `${product.name} is per ${product.basis === 'item' ? 'item' : '100 g'}, so this amount can’t be counted until Pinch knows what one weighs.`),
+      h('div', { class: 'key-row' },
+        h('div', { class: 'unit-in' },
+          h('input', { class: 'input', inputmode: 'decimal', 'aria-label': `Weight of one ${one}`, placeholder: `One ${one.toLowerCase()} weighs`, value: itemGramsText,
+            oninput: (e) => { itemGramsText = e.target.value; } }),
+          h('em', {}, 'g')),
+        h('button', { class: 'btn primary', type: 'button', onclick: () => saveItemWeight(product) }, 'Save')),
+      h('p', { class: 'hint' }, 'Saved on the product, so every recipe using it can count it.'));
+  }
+
+  async function saveItemWeight(product) {
+    const grams = Number(itemGramsText.replace(',', '.'));
+    if (!(Number.isFinite(grams) && grams > 0)) { toast('Enter the weight of one, in grams.', { error: true }); return; }
+    try {
+      await state.saveProduct({ ...product, gramsPerItem: grams });
+      itemGramsText = '';
+      toast('Weight saved');
+      render();
+    } catch (e) {
+      toast(e.message, { error: true });
+    }
+  }
+
+  function editProduct(product) {
+    openProductForm({ initial: product, title: 'Edit product', onSaved: () => render() });
   }
 
   function link(p) {

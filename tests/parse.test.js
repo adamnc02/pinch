@@ -102,6 +102,9 @@ describe('small helpers', () => {
   test('servesFrom', () => {
     assertEqual([servesFrom('Serves 6'), servesFrom(['4', '4 servings']), servesFrom('Makes 12'), servesFrom('lots'), servesFrom(4)], [6, 4, 12, null, 4]);
   });
+  test('mealFrom files sauces, dressings and condiments under sauce', () => {
+    assertEqual([mealFrom('Sauce'), mealFrom('Salad dressing'), mealFrom('Condiments'), mealFrom('Dips'), mealFrom('Main course')], ['sauce', 'sauce', 'sauce', 'sauce', 'dinner']);
+  });
   test('mealFrom prefers dinner when a page lists several', () => {
     assertEqual([mealFrom('Dinner, Lunch, Main course'), mealFrom('Lunch'), mealFrom('Breakfast, Brunch'), mealFrom('Dessert')], ['dinner', 'lunch', 'breakfast', null]);
   });

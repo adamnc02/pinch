@@ -15,6 +15,14 @@ describe('validateRecipe', () => {
   });
   test('a name that is only a "(Meal) " prefix is still missing', () => assertEqual(fields({ ...ok(), name: '(Dinner) ' }), ['name']));
   test('serves must be a whole number', () => assertEqual(fields({ ...ok(), serves: 2.5 }), ['serves']));
+  test('a sauce is a meal; anything else is not', () => {
+    assertEqual(fields({ ...ok(), meal: 'sauce' }), []);
+    assertEqual(fields({ ...ok(), meal: 'pudding' }), ['meal']);
+  });
+  test('each bad cooking option is reported by its position', () => {
+    const cooking = [{ id: 'c1', method: 'oven', minutes: 20, tempC: 200 }, { id: 'c2', method: 'other', name: null, minutes: 5, tempC: 999 }];
+    assertEqual(fields({ ...ok(), cooking }), ['cooking.1', 'cooking.1']);
+  });
   test('qty is a positive number or null', () => {
     const r = ok();
     r.ingredients[0].qty = 0;

@@ -67,6 +67,8 @@
 
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.four .meal { font-size: 12.5px; padding: 0 2px; }
 .option { text-align: left; padding: 14px; border-radius: 16px; border: 2px solid var(--line); background: transparent;
           display: flex; flex-direction: column; gap: 8px; color: var(--ink); }
 .option svg.i { color: var(--muted); }
@@ -247,6 +249,33 @@
 .msteps .tools .icon-btn { color: var(--muted); }
 .msteps .tools .icon-btn:disabled { opacity: .35; }
 .msteps .tools svg.i { width: 17px; height: 17px; }
+
+/* Cooking options, after the method (editor) and on the recipe sheet. */
+.cook-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cook-list .row-item svg.i { width: 16px; height: 16px; color: var(--muted); flex-shrink: 0; align-self: center; }
+.cook-list li.editing { padding: 12px; border-radius: 16px; background: var(--sunk); display: flex; flex-direction: column; gap: 10px; }
+.cook-list li.editing .input { background: var(--surface); }
+.cook-list .chips { flex-wrap: wrap; margin: 0; padding: 0; overflow: visible; }
+.cook-list .chip { height: 34px; padding: 0 12px; font-size: 12.5px; background: var(--surface); }
+.cook-list .chip[aria-pressed="true"] { background: var(--soft); }
+.cook-list .tools { display: flex; justify-content: flex-end; align-items: center; gap: 2px; margin: -4px -6px -6px 0; }
+.cook-list .tools .icon-btn { color: var(--muted); }
+.cook-list .tools .icon-btn:disabled { opacity: .35; }
+.cook-list .tools svg.i { width: 17px; height: 17px; }
+.cooking-view { margin-top: 22px; }
+.cooking-view h4 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+                   display: flex; align-items: center; gap: 6px; }
+.cooking-view h4 svg.i { width: 15px; height: 15px; }
+.cooking-view ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cooking-view li { padding: 10px 14px; border-radius: 14px; background: var(--sunk); }
+.cooking-view li b { display: block; font-size: var(--fs-step); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cooking-view li span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+
+/* Add ingredient: the weight of one item, when the amount needs it. */
+.item-weight { margin-top: 10px; padding: 12px 0; border-radius: 14px; background: var(--sunk); display: flex; flex-direction: column; gap: 8px; }
+.item-weight > p { margin: 0; padding: 0 12px; font-size: 13px; }
+.item-weight .key-row .unit-in { flex: 1; }
+.item-weight .key-row .unit-in .input { width: 100%; background: var(--surface); }
 
 /* ── settings (08) ────────────────────────────────────────────────────── */
 .group { display: flex; flex-direction: column; gap: 8px; }

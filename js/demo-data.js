@@ -4,7 +4,9 @@
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 let next = 100;
 const ing = (name, qty, unit, productId = null) => ({ id: id(next++), name, qty, unit, productId });
+const spice = (...args) => ({ ...ing(...args), seasoning: true });
 const step = (text, ...tagged) => ({ id: id(next++), text, ingredientIds: tagged.map((i) => i.id) });
+const cook = (method, minutes, tempC, note = null) => ({ id: id(next++), method, name: null, minutes, tempC, note });
 
 export function demoData() {
   next = 100;
@@ -21,14 +23,16 @@ export function demoData() {
   const [spaghetti, guanciale, egg, yolk, pecorino, chickpeas, oats, milk] = products.map((p) => p.id);
 
   const carb = [ing('Spaghetti', 400, 'g', spaghetti), ing('Guanciale', 150, 'g', guanciale), ing('Egg yolks', 4, 'each', yolk),
-    ing('Whole eggs', 2, 'each', egg), ing('Pecorino Romano', 60, 'g', pecorino), ing('Parmigiano Reggiano', 30, 'g'), ing('Black pepper', 2 / 3, 'tbsp')];
+    ing('Whole eggs', 2, 'each', egg), ing('Pecorino Romano', 60, 'g', pecorino), ing('Parmigiano Reggiano', 30, 'g'), spice('Black pepper', 2 / 3, 'tbsp')];
   const chana = [ing('Chickpeas, tinned', 2, 'each', chickpeas), ing('Onion', 1, 'each'), ing('Vegetable oil', 2, 'tbsp'), ing('Garlic', 3, 'each'),
-    ing('Ginger', 1, 'tbsp'), ing('Garam masala', 2, 'tsp'), ing('Chopped tomatoes', 400, 'g'), ing('Fresh coriander', 0.5, 'cup'), ing('Salt', null, 'to taste')];
+    ing('Ginger', 1, 'tbsp'), spice('Garam masala', 2, 'tsp'), ing('Chopped tomatoes', 400, 'g'), ing('Fresh coriander', 0.5, 'cup'), spice('Salt', null, 'to taste')];
   const muesli = [ing('Rolled oats', 80, 'g', oats), ing('Semi-skimmed milk', 1, 'cup', milk), ing('Apple', 1, 'each'), ing('Honey', 1, 'tbsp')];
   const katsu = [ing('Chicken breast', 2, 'each'), ing('Panko', 80, 'g'), ing('Plain flour', 30, 'g'), ing('Egg', 1, 'each', egg), ing('Curry roux', 100, 'g'), ing('Rice', 300, 'g')];
   const krapao = [ing('Pork mince', 300, 'g'), ing('Thai basil', 1, 'cup'), ing('Garlic', 4, 'each'), ing('Bird’s eye chilli', 3, 'each'), ing('Oyster sauce', 1, 'tbsp'), ing('Fish sauce', 1, 'tbsp')];
   const croque = [ing('Bread', 4, 'each'), ing('Ham', 4, 'each'), ing('Gruyère', 100, 'g'), ing('Butter', 20, 'g'), ing('Milk', 200, 'ml', milk), ing('Eggs', 2, 'each', egg)];
   const risotto = [ing('Carnaroli rice', 320, 'g'), ing('Chicken stock', 1.2, 'l'), ing('Saffron', null, 'to taste'), ing('Butter', 60, 'g'), ing('Parmesan', 60, 'g')];
+  const verde = [ing('Flat-leaf parsley', 1, 'cup'), ing('Capers', 1, 'tbsp'), ing('Olive oil', 100, 'ml'), ing('Red wine vinegar', 1, 'tbsp'), spice('Salt', null, 'to taste')];
+  const katsuCook = [cook('air_fryer', 12, 200, 'Spray with oil and turn halfway'), cook('oven', 20, 200)];
 
   const recipes = [
     { id: id(11), name: 'Spaghetti carbonara', serves: 4, meal: 'dinner', cuisine: 'IT', photoPath: null, blocRecipeId: null, ingredients: carb, steps: [
@@ -39,7 +43,7 @@ export function demoData() {
     { id: id(12), name: 'Chicken katsu curry', serves: 2, meal: 'dinner', cuisine: 'JP', photoPath: null, blocRecipeId: null, ingredients: katsu, steps: [
       step('Flatten the chicken, then dip in flour, egg and panko.', katsu[0], katsu[2], katsu[3], katsu[1]),
       step('Shallow fry until golden and cooked through.'),
-      step('Make the curry sauce with the roux and serve over rice.', katsu[4], katsu[5])] },
+      step('Make the curry sauce with the roux and serve over rice.', katsu[4], katsu[5])], cooking: katsuCook },
     { id: id(13), name: 'Pad kra pao', serves: 2, meal: 'lunch', cuisine: 'TH', photoPath: null, blocRecipeId: null, ingredients: krapao, steps: [
       step('Pound the garlic and chillies.', krapao[2], krapao[3]),
       step('Stir-fry the pork in a very hot wok, then add the sauces.', krapao[0], krapao[4], krapao[5]),
@@ -59,6 +63,10 @@ export function demoData() {
     { id: id(17), name: 'Risotto alla milanese', serves: 4, meal: 'dinner', cuisine: 'IT', photoPath: null, blocRecipeId: null, ingredients: risotto, steps: [
       step('Toast the rice in half the butter, then add hot stock a ladle at a time.', risotto[0], risotto[1], risotto[3]),
       step('Stir in the saffron, then finish with the rest of the butter and the Parmesan.', risotto[2], risotto[4])] },
+    { id: id(18), name: 'Salsa verde', serves: 6, meal: 'sauce', cuisine: 'IT', photoPath: null, blocRecipeId: null, ingredients: verde, steps: [
+      step('Chop the parsley and capers finely.', verde[0], verde[1]),
+      step('Stir in the oil and vinegar, and season.', verde[2], verde[3], verde[4])] },
   ];
+  for (const r of recipes) r.cooking ??= [];
   return { recipes, products };
 }
