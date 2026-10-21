@@ -64,9 +64,9 @@ async function all(query) {
   }
 }
 
-function shape({ recipes, ingredients, steps, tags, products, nutrition, ingredientStatus, densities }) {
+function shape({ recipes, ingredients, steps, tags, cooking, products, nutrition, ingredientStatus, densities }) {
   return {
-    recipes: rowsToRecipes({ recipes, ingredients, steps, tags }),
+    recipes: rowsToRecipes({ recipes, ingredients, steps, tags, cooking }),
     products: products.map(rowToProduct),
     nutrition: Object.fromEntries(nutrition.map((n) => [n.recipe_id, rowToNutrition(n)])),
     ingredientStatus: Object.fromEntries(ingredientStatus.map((s) => [s.ingredient_id, s.status])),
@@ -76,17 +76,18 @@ function shape({ recipes, ingredients, steps, tags, products, nutrition, ingredi
 
 export async function loadAll(userId) {
   if (isDemo) return demoLoad();
-  const [recipes, ingredients, steps, tags, products, nutrition, ingredientStatus, densities] = await Promise.all([
+  const [recipes, ingredients, steps, tags, cooking, products, nutrition, ingredientStatus, densities] = await Promise.all([
     all(() => supabase.from('recipes').select('id,name,serves,meal,cuisine,photo_path,bloc_recipe_id,created_by,updated_at').order('id')),
-    all(() => supabase.from('ingredients').select('id,recipe_id,position,name,qty,unit,product_id').order('id')),
+    all(() => supabase.from('ingredients').select('id,recipe_id,position,name,qty,unit,product_id,seasoning').order('id')),
     all(() => supabase.from('steps').select('id,recipe_id,position,text').order('id')),
     all(() => supabase.from('step_ingredients').select('step_id,ingredient_id').order('step_id')),
+    all(() => supabase.from('cooking_methods').select('id,recipe_id,position,method,name,minutes,temp_c,note').order('id')),
     all(() => supabase.from('products').select('*').order('id')),
     all(() => supabase.from('recipe_nutrition').select('*').order('recipe_id')),
     all(() => supabase.from('ingredient_nutrition').select('ingredient_id,status').order('ingredient_id')),
     all(() => supabase.from('densities').select('name,g_per_ml').order('name')),
   ]);
-  const data = shape({ recipes, ingredients, steps, tags, products, nutrition, ingredientStatus, densities });
+  const data = shape({ recipes, ingredients, steps, tags, cooking, products, nutrition, ingredientStatus, densities });
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ userId, at: Date.now(), data })); } catch { /* full or private */ }
   return data;
 }
@@ -252,6 +253,20 @@ export async function setNutrition(on) {
   return must(await supabase.auth.updateUser({ data: { pinch_nutrition: on } }), 'save that setting').user;
 }
 
+// ── temperatures ──────────────────────────────────────────────────────────
+// °C or °F for cooking options, saved on the person's login
+// (user_metadata.pinch_temp_unit, 'c' | 'f') like the nutrition switch.
+// Missing means °C. Display only: temperatures are stored in °C.
+const DEMO_TEMP_KEY = 'pinch.demo.tempUnit';
+export function tempUnit(user) {
+  if (isDemo) { try { return localStorage.getItem(DEMO_TEMP_KEY) === 'f' ? 'f' : 'c'; } catch { return 'c'; } }
+  return user?.user_metadata?.pinch_temp_unit === 'f' ? 'f' : 'c';
+}
+export async function setTempUnit(unit) {
+  if (isDemo) { try { localStorage.setItem(DEMO_TEMP_KEY, unit); } catch { /* */ } return null; }
+  return must(await supabase.auth.updateUser({ data: { pinch_temp_unit: unit } }), 'save that setting').user;
+}
+
 // ── web import ────────────────────────────────────────────────────────────
 // The pinch-import function only fetches the page (browsers can't, CORS).
 // It holds no Claude key: when a page has no recipe data it returns the text
@@ -295,7 +310,7 @@ function demoNutritionFor(d, ids) {
       const p = products.get(i.productId);
       let status = 'ok';
       let f = null;
-      if (i.qty == null || i.unit === 'to taste') status = 'not_counted';
+      if (i.seasoning || i.qty == null || i.unit === 'to taste') status = 'not_counted';
       else if (!p) status = 'no_product';
       else if (p.basis === '100g' && (i.unit === 'g' || i.unit === 'kg')) f = (i.unit === 'kg' ? i.qty * 1000 : i.qty) / 100;
       else if (p.basis === '100ml' && ['ml', 'l', 'tsp', 'tbsp', 'cup'].includes(i.unit)) f = ({ ml: 1, l: 1000, tsp: 5, tbsp: 15, cup: 250 }[i.unit] * i.qty) / 100;

@@ -10,6 +10,7 @@
 // · On a wide screen (prefs WIDE) with Side by side on, Ingredients and
 //   Method are two columns with no tabs and no flip.
 // · The basket opens Send to Listly at the servings shown.
+// · Cooking options follow the method, in the person's °C / °F.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -24,6 +25,7 @@ import { scaleRecipe } from '../lib/scale.js';
 import { formatAmount, trimNumber } from '../lib/format.js';
 import { stepLine } from '../lib/method.js';
 import { mealLabel, displayName } from '../lib/recipes.js';
+import { cookingLine } from '../lib/cooking.js';
 import { cuisineName } from '../lib/cuisines.js';
 import { photoUrl } from '../storage.js';
 
@@ -175,13 +177,23 @@ export function openRecipeSheet(id, { onEdit, onCheck, onClose }) {
   }
 
   function methodFace() {
-    if (!recipe.steps.length) return [h('p', { class: 'hint pad' }, 'No method yet. Tap the pencil to add the steps.')];
+    const cooking = cookingBlock();
+    if (!recipe.steps.length) return [h('p', { class: 'hint pad' }, 'No method yet. Tap the pencil to add the steps.'), cooking];
     const opts = { ...amountOpts(), densityFor: state.densityForIngredient };
     return [h('ol', { class: 'steps' }, recipe.steps.map((s, n) => {
       const line = stepLine(recipe, s, servings, opts);
       return h('li', {}, h('span', { class: 'n', 'aria-hidden': 'true' }, String(n + 1)),
         h('div', {}, h('p', {}, s.text), line ? h('p', { class: 'tagged' }, line) : null));
-    }))];
+    })), cooking];
+  }
+
+  function cookingBlock() {
+    const list = recipe.cooking ?? [];
+    if (!list.length) return null;
+    const unit = state.get().tempUnit;
+    return h('section', { class: 'cooking-view', 'aria-label': 'Cooking' },
+      h('h4', {}, icon('flame'), 'Cooking'),
+      h('ul', {}, list.map((c) => h('li', {}, h('b', {}, cookingLine(c, unit)), c.note ? h('span', {}, c.note) : null))));
   }
 
   function renderFace() {

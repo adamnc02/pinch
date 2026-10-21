@@ -2,9 +2,9 @@
 //   Household · Appearance (+ side by side on a wide screen) · Show amounts
 //   as (+ Cup size) · Nutrition · Import from web · Your data (Import recipes
 //   from BLOC, Back up recipes, Restore).
-// Appearance and units are per device (prefs.js); Nutrition is the person's,
-// saved on their login; everything under Household and Your data is the
-// household's.
+// Appearance and units are per device (prefs.js); Nutrition and
+// Temperatures are the person's, saved on their login; everything under
+// Household and Your data is the household's.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -18,7 +18,7 @@ import { toggle } from '../components/toggle.js';
 import { makeBackup, parseBackup } from '../lib/backup.js';
 import { openBlocImport } from './bloc-import.js';
 
-export const VERSION = '1.1';
+export const VERSION = '1.2';
 
 export function openSettings({ onSignOut }) {
   const body = h('div', { class: 'settings' });
@@ -59,7 +59,10 @@ export function openSettings({ onSignOut }) {
       h('div', { class: 'group' }, h('span', { class: 'label' }, 'Show amounts as'),
         seg('Amounts', [['original', 'Original'], ['written', 'As written'], ['metric', 'Metric'], ['cups', 'Cups']], prefs.amounts, (v) => setPref('amounts', v)),
         h('span', { class: 'label sub-label' }, 'Cup size'),
-        seg('Cup size', [['metric', 'Metric · 250 ml'], ['us', 'US · 237 ml']], prefs.cup, (v) => setPref('cup', v))),
+        seg('Cup size', [['metric', 'Metric · 250 ml'], ['us', 'US · 237 ml']], prefs.cup, (v) => setPref('cup', v)),
+        h('span', { class: 'label sub-label' }, 'Temperatures'),
+        seg('Temperatures', [['c', 'Celsius · °C'], ['f', 'Fahrenheit · °F']], state.get().tempUnit, setTemp),
+        h('p', { class: 'hint' }, 'For cooking options. Saved on your account, so every phone you sign in on follows it.')),
 
       h('div', { class: 'group' }, h('span', { class: 'label' }, 'Nutrition'),
         h('div', { class: 'list' },
@@ -96,6 +99,16 @@ export function openSettings({ onSignOut }) {
     } catch (e) {
       toast(e.message, { error: true });
       throw e;
+    }
+  }
+
+  async function setTemp(unit) {
+    if (unit === state.get().tempUnit) return;
+    try {
+      await state.setTempUnit(unit);
+      render();
+    } catch (e) {
+      toast(e.message, { error: true });
     }
   }
 

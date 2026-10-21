@@ -11,6 +11,12 @@
 // · With Nutrition and barcodes off (state.nutritionOn), there is no Scan
 //   barcode, no "needs nutrition" and no Check ingredients step after an
 //   import: the import goes straight to the method.
+// · "needs nutrition" is nutritionStatus(), the same rule as the recipe
+//   card's count: no product, or an amount the product can't count. A
+//   seasoning never needs it.
+// · Cooking, after the method: any number of options (Air fryer · 12 min ·
+//   200°C · a note), one open at a time like the steps. Temperatures are
+//   typed and shown in the person's unit and stored in °C.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -23,10 +29,12 @@ import * as state from '../state.js';
 import * as storage from '../storage.js';
 import { amountOpts, getAiKey } from '../prefs.js';
 import * as claude from '../claude.js';
-import { blankRecipe, blankStep } from '../lib/ids.js';
+import { blankRecipe, blankStep, blankCooking } from '../lib/ids.js';
 import { validateRecipe } from '../lib/validate.js';
 import { removeIngredient, moveStep, toggleTag, stepLine } from '../lib/method.js';
 import { formatAmount } from '../lib/format.js';
+import { nutritionStatus } from '../lib/units.js';
+import { COOKING_METHODS, cookingLine, tempInputToC, tempForInput, looksLikeSeasoning } from '../lib/cooking.js';
 import { MEALS, mealLabel, splitMealPrefix, displayName } from '../lib/recipes.js';
 import { CUISINES, cuisineName } from '../lib/cuisines.js';
 import { splitRecipeText, draftFromImport, looksLikeUrl, hostOf, parseIngredientLine, servesFrom, mealFrom } from '../lib/parse.js';
@@ -37,8 +45,10 @@ import { openScanner } from './scanner.js';
 export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   const original = recipeId ? state.getRecipe(recipeId) : null;
   let draft = structuredClone(original ?? blankRecipe());
+  draft.cooking ??= [];
   let mode = original ? 'enter' : 'enter';
   let editingStep = null;
+  let editingCook = null;
   let photoBlob = null;        // a new photo, uploaded on save
   let uploadedPath = null;     // its path once uploaded, so a retried save doesn't upload it again
   let photoPreview = null;
@@ -91,13 +101,14 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
       h('div', { class: 'two' },
         field('Serves', stepper({ value: draft.serves, label: 'servings', onChange: (v) => { draft.serves = v; } })),
         field('Cuisine', cuisineSelect())),
-      field('Meal', h('div', { class: 'three', role: 'group', 'aria-label': 'Meal' }, MEALS.map((m) => h('button', {
+      field('Meal', h('div', { class: 'four', role: 'group', 'aria-label': 'Meal' }, MEALS.map((m) => h('button', {
         class: 'meal', type: 'button', 'aria-pressed': String(draft.meal === m),
         onclick: () => { draft.meal = m; render(); },
       }, mealLabel(m)))), err('meal')),
       photoField(),
       ingredientsField(problems),
       methodField(),
+      cookingField(problems),
       problems.length ? h('ul', { class: 'problems', role: 'alert' }, problems.map((p) => h('li', {}, p.message))) : null,
       h('button', { class: 'btn primary big', type: 'button', disabled: busy, onclick: save }, busy ? 'Saving…' : 'Save recipe'),
       original ? h('button', { class: 'btn quiet danger-text', type: 'button', onclick: del }, icon('trash'), 'Delete recipe') : null,
@@ -148,9 +159,11 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
     }
   }
 
+  const needsNutrition = (i) => ['no_product', 'unconvertible'].includes(nutritionStatus(i, state.getProduct(i.productId), state.densityForIngredient(i)));
+
   function ingredientsField(problems) {
     const nutritionOn = state.get().nutritionOn;
-    const needs = nutritionOn ? draft.ingredients.filter((i) => i.qty != null && i.unit !== 'to taste' && !i.productId).length : 0;
+    const needs = nutritionOn ? draft.ingredients.filter(needsNutrition).length : 0;
     return h('div', { class: 'field' },
       h('div', { class: 'field-head' }, h('span', { class: 'label' }, 'Ingredients'),
         h('span', { class: 'hint' }, draft.ingredients.length ? `${draft.ingredients.length} added` : '')),
@@ -162,9 +175,10 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
       draft.ingredients.length
         ? h('ul', { class: 'rows' }, draft.ingredients.map((i, n) => {
           const bad = problems.some((p) => p.field === `ingredients.${n}`);
-          const missing = nutritionOn && i.qty != null && i.unit !== 'to taste' && !i.productId;
+          const missing = nutritionOn && needsNutrition(i);
           return h('li', {}, h('button', { class: `row-item ${bad ? 'bad' : ''}`, type: 'button', onclick: () => editIngredient(i.id) },
-            h('span', { class: 'txt' }, h('span', {}, i.name || 'Unnamed'), missing ? h('em', {}, 'needs nutrition') : null),
+            h('span', { class: 'txt' }, h('span', {}, i.name || 'Unnamed'),
+              missing ? h('em', {}, 'needs nutrition') : i.seasoning && nutritionOn ? h('em', {}, 'seasoning') : null),
             h('b', {}, formatAmount(i.qty, i.unit, { ...amountOpts(), density: state.densityForIngredient(i) }))));
         }))
         : null,
@@ -243,6 +257,69 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   }
   const focusStep = () => requestAnimationFrame(() => body.querySelector('textarea[data-step]')?.focus());
 
+  // ── Cooking ──────────────────────────────────────────────────────────────
+  function cookingField(problems) {
+    const unit = state.get().tempUnit;
+    return h('div', { class: 'field cooking' },
+      h('div', { class: 'field-head' }, h('span', { class: 'label' }, 'Cooking'),
+        h('span', { class: 'hint' }, draft.cooking.length ? '' : 'Optional · e.g. Air fryer, 12 min, 200°C')),
+      draft.cooking.length ? h('ul', { class: 'cook-list' }, draft.cooking.map((c, n) => cookItem(c, n, unit, problems))) : null,
+      h('button', { class: 'btn secondary', type: 'button', onclick: addCook }, icon('plus'), 'Add cooking option'));
+  }
+
+  function cookItem(c, n, unit, problems) {
+    const bad = problems.some((p) => p.field === `cooking.${n}`);
+    if (editingCook !== c.id) {
+      return h('li', {}, h('button', { class: `row-item ${bad ? 'bad' : ''}`, type: 'button', 'aria-label': `Edit cooking option ${n + 1}`, onclick: () => { editingCook = c.id; render(); } },
+        h('span', { class: 'txt' }, h('span', {}, cookingLine(c, unit)), c.note ? h('em', {}, c.note) : null),
+        icon('pencil')));
+    }
+    const setC = (patch) => { Object.assign(c, patch); };
+    const deg = unit === 'f' ? '°F' : '°C';
+    return h('li', { class: 'editing' },
+      h('div', { class: 'chips', role: 'group', 'aria-label': 'How it is cooked' }, COOKING_METHODS.map(([key, label]) => h('button', {
+        class: 'chip', type: 'button', 'aria-pressed': String(c.method === key),
+        onclick: () => { setC({ method: key, name: key === 'other' ? c.name : null }); render(); },
+      }, label))),
+      c.method === 'other' ? h('input', { class: 'input', 'aria-label': 'Cooking method name', placeholder: 'e.g. Deep fryer', value: c.name ?? '',
+        onchange: (e) => setC({ name: e.target.value.trim() || null }) }) : null,
+      h('div', { class: 'two' },
+        h('div', { class: 'unit-in' },
+          h('input', { class: 'input', inputmode: 'numeric', 'aria-label': 'Time in minutes', placeholder: 'Time', value: c.minutes ?? '',
+            onchange: (e) => { const v = e.target.value.trim(); setC({ minutes: v === '' ? null : Number(v) }); } }),
+          h('em', {}, 'min')),
+        h('div', { class: 'unit-in' },
+          h('input', { class: 'input', inputmode: 'decimal', 'aria-label': `Temperature in ${deg}`, placeholder: 'Temp', value: tempForInput(c.tempC, unit),
+            onchange: (e) => setC({ tempC: tempInputToC(e.target.value, unit) }) }),
+          h('em', {}, deg))),
+      h('input', { class: 'input', 'aria-label': 'Note', placeholder: 'Note · optional, e.g. turn halfway', maxlength: '200', value: c.note ?? '',
+        onchange: (e) => setC({ note: e.target.value.trim() || null }) }),
+      h('div', { class: 'tools' },
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Move up', disabled: n === 0, onclick: () => moveCook(c.id, -1) }, icon('arrow-up')),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Move down', disabled: n === draft.cooking.length - 1, onclick: () => moveCook(c.id, 1) }, icon('arrow-down')),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Delete cooking option', onclick: () => { draft = { ...draft, cooking: draft.cooking.filter((x) => x.id !== c.id) }; editingCook = null; render(); } }, icon('trash')),
+        h('button', { class: 'btn quiet', type: 'button', onclick: () => { editingCook = null; render(); } }, 'Done')));
+  }
+
+  function addCook() {
+    // Blur first, so a value typed in the open option is kept.
+    document.activeElement?.blur?.();
+    const c = blankCooking(draft.cooking.length ? 'oven' : 'air_fryer');
+    draft = { ...draft, cooking: [...draft.cooking, c] };
+    editingCook = c.id;
+    render();
+  }
+
+  function moveCook(id, d) {
+    const list = [...draft.cooking];
+    const at = list.findIndex((c) => c.id === id);
+    const to = at + d;
+    if (at < 0 || to < 0 || to >= list.length) return;
+    [list[at], list[to]] = [list[to], list[at]];
+    draft = { ...draft, cooking: list };
+    render();
+  }
+
   // ── Import from web ──────────────────────────────────────────────────────
   let importText = '';
   let importServes = 4;
@@ -313,15 +390,18 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
         meal: mealFrom(src.recipeCategory) ? null : importMeal,
       });
       if (unparsed.length) await fixUnparsed(recipe, unparsed);
+      // Seasonings are suggested, as for a typed ingredient; Check
+      // ingredients shows them as not counted, and can unmark one.
       for (const i of recipe.ingredients) {
-        const p = state.matchProduct(i.name);
+        i.seasoning = looksLikeSeasoning(i.name);
+        const p = i.seasoning ? null : state.matchProduct(i.name);
         if (p) i.productId = p.id;
       }
       if (!recipe.ingredients.length) {
         importNote = { error: true, text: 'No ingredients were found. Check the text has a list of ingredients.' };
         return;
       }
-      draft = { ...recipe, id: draft.id };
+      draft = { ...recipe, id: draft.id, cooking: draft.cooking ?? [] };
       mode = 'enter';
       const toMethod = () => requestAnimationFrame(() => body.querySelector('.method')?.scrollIntoView({ block: 'start' }));
       if (!state.get().nutritionOn) { editingStep = null; toMethod(); return; }
@@ -358,6 +438,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
 
   // ── save / delete ────────────────────────────────────────────────────────
   async function save() {
+    document.activeElement?.blur?.();   // an open cooking field commits on change
     showErrors = true;
     draft.steps = draft.steps.filter((s) => s.text.trim() || s.ingredientIds.length);
     const problems = validateRecipe(draft);

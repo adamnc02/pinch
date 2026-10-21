@@ -2,6 +2,8 @@
 // one being corrected. Nutrition per 100 g, per 100 ml or per item, as the
 // four BLOC uses (kcal, protein, carbs, fat), and an optional weight of one
 // item so "2 tins" can become grams. Saved to the household's products.
+// Opened with an existing product (`initial.id`), it edits that product for
+// every recipe that links it, and says so.
 
 import { h, clear } from '../components/dom.js';
 import { openSheet, sheetHead } from '../components/sheet.js';
@@ -38,6 +40,7 @@ export function openProductForm({ initial = {}, onSaved, onClose, title = 'New p
       p.basis === '100ml' ? null : h('div', { class: 'field' }, h('label', { for: 'm-gramsPerItem' }, 'Weight of one item'),
         h('div', { class: 'unit-in' }, h('input', { id: 'm-gramsPerItem', class: 'input', inputmode: 'decimal', value: vals.gramsPerItem, placeholder: 'Optional', oninput: (e) => { vals.gramsPerItem = e.target.value; } }), h('em', {}, 'g')),
         h('p', { class: 'hint' }, p.basis === 'item' ? 'Lets an amount in grams be counted against this item.' : 'Lets “2 tins” become grams. Use the drained weight if the recipe drains it.')),
+      p.id ? h('p', { class: 'hint' }, 'Changes this product in every recipe that uses it.') : null,
       error ? h('p', { class: 'field-error', role: 'alert' }, error) : null,
       h('button', { class: 'btn primary big', type: 'button', disabled: busy, onclick: save }, busy ? 'Saving…' : 'Save product'));
   }

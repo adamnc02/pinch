@@ -46,6 +46,14 @@ describe('unitOptions', () => {
 describe('nutritionStatus (mirrors pinch.ingredient_nutrition)', () => {
   const p = (basis, gramsPerItem = null) => ({ basis, gramsPerItem });
   const s = (qty, unit, product, density = null) => nutritionStatus({ qty, unit }, product, density);
+  test('a seasoning is never counted, whatever its amount or product', () => {
+    assertEqual(nutritionStatus({ qty: 1, unit: 'tsp', seasoning: true }, p('100g'), null), 'not_counted');
+    assertEqual(nutritionStatus({ qty: 1, unit: 'tsp', seasoning: true }, null, null), 'not_counted');
+    assertEqual(nutritionStatus({ qty: 1, unit: 'tsp', seasoning: false }, p('100g'), null), 'unconvertible');
+  });
+  test('"2 each" against a per-100 g product counts once it has the weight of one', () => {
+    assertEqual([s(2, 'each', p('100g')), s(2, 'each', p('100g', 58))], ['unconvertible', 'ok']);
+  });
   test('to taste and no amount are not counted', () => {
     assertEqual(s(null, 'g', p('100g')), 'not_counted');
     assertEqual(s(1, 'to taste', p('100g')), 'not_counted');

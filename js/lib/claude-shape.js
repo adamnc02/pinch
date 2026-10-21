@@ -12,7 +12,7 @@ export const RECIPE_SCHEMA = {
     ingredients: { type: 'array', items: { type: 'string' } },
     steps: { type: 'array', items: { type: 'string' } },
     cuisine: { type: 'string' },
-    meal: { type: 'string', enum: ['breakfast', 'lunch', 'dinner', 'unknown'] },
+    meal: { type: 'string', enum: ['breakfast', 'lunch', 'dinner', 'sauce', 'unknown'] },
   },
   required: ['found', 'name', 'servings', 'ingredients', 'steps', 'cuisine', 'meal'],
   additionalProperties: false,
@@ -51,7 +51,7 @@ export function recipeFromClaude(out) {
     recipeIngredient: strings(out.ingredients),
     recipeInstructions: strings(out.steps),
     recipeCuisine: /^[A-Za-z]{2}$/.test(out.cuisine ?? '') ? out.cuisine.toUpperCase() : null,
-    recipeCategory: ['breakfast', 'lunch', 'dinner'].includes(out.meal) ? out.meal : null,
+    recipeCategory: ['breakfast', 'lunch', 'dinner', 'sauce'].includes(out.meal) ? out.meal : null,
   };
 }
 

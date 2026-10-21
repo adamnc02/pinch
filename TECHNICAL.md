@@ -30,6 +30,8 @@ the database is in `silver-octo-invention/docs/pinch-SUPABASE.md`.
 23. [Send to Listly](#23-send-to-listly)
 24. [Nutrition and barcodes off](#24-nutrition-and-barcodes-off)
 25. [Tablets](#25-tablets)
+26. [Seasonings](#26-seasonings)
+27. [Cooking options and temperatures](#27-cooking-options-and-temperatures)
 
 ---
 
@@ -107,24 +109,28 @@ Home's page edge fades follow BLOC and Listly: anchored to the scrolling box, bu
 ## 4. The data model
 
 ```js
-Recipe     { id, name, serves, meal, cuisine, photoPath, blocRecipeId, ingredients[], steps[] }
-Ingredient { id, name, qty, unit, productId }     // qty null = don't scale
+Recipe     { id, name, serves, meal, cuisine, photoPath, blocRecipeId, ingredients[], steps[], cooking[] }
+Ingredient { id, name, qty, unit, productId, seasoning }   // qty null = don't scale; seasoning §26
 Step       { id, text, ingredientIds[] }          // tags, in ingredient-list order
+Cooking    { id, method, name, minutes, tempC, note }      // §27; name only for 'other'
 Product    { id, name, brand, barcode, basis, kcal, protein, carbs, fat, gramsPerItem, source }
 Nutrition  { kcal, protein, carbs, fat, counted, missing, notCounted, complete }  // per serving
 ```
 
-- `meal` ∈ `breakfast | lunch | dinner`; `cuisine` is an ISO alpha-2 code or null.
+- `meal` ∈ `breakfast | lunch | dinner | sauce` (`MEALS`, in that order; `mealLabel('sauce')` is "Sauces");
+  `cuisine` is an ISO alpha-2 code or null.
 - `unit` ∈ `g kg ml l tsp tbsp cup each`, `to taste`.
 - `basis` ∈ `100g | 100ml | item`; `source` ∈ `label | off | bloc`.
 - Ids are `crypto.randomUUID()`, made when the row is created (`lib/ids.js`).
-- `lib/rows.js` maps the four tables to this shape and back (`rowsToRecipes`, `recipeToPayload`),
-  ordered by `position`; `rowToProduct`, `productToRow`, `rowToNutrition` do the rest.
+- `lib/rows.js` maps the five recipe tables to this shape and back (`rowsToRecipes`, `recipeToPayload`),
+  ordered by `position`; `rowToProduct`, `productToRow`, `rowToNutrition` do the rest. The payload always carries
+  `seasoning` on every ingredient and a `cooking` list (empty clears it); see §27 for why the database treats a
+  missing key as "unchanged".
 
 ## 5. state.js and storage.js
 
 **`state.js`** holds `{ user, householdId, recipes, products, nutrition, ingredientStatus,
-densities, status, error }`. Views call `subscribe(fn)` and re-render; only its actions change
+densities, nutritionOn, tempUnit, status, error }`. Views call `subscribe(fn)` and re-render; only its actions change
 data, and each writes through `storage.js` first:
 
 | Action | Does |
@@ -198,7 +204,7 @@ Back / title / Close row.
 `views/home.js` (screens 01, 02). The header (wordmark, Settings), `By meal | By cuisine`, the chip
 row, the grid between the two edge fades, and the 60 px add button.
 
-- Chips: By meal is `All · Breakfast · Lunch · Dinner`; By cuisine is `All` plus
+- Chips: By meal is `All · Breakfast · Lunch · Dinner · Sauces`; By cuisine is `All` plus
   `cuisinesInUse(sorted recipes)`, each with a 20×14 flag. Switching mode resets to All; a cuisine
   whose last recipe is deleted falls back to All. The mode is remembered per device.
 - Cards are alphabetical, 200 px, two columns (three from 560 px, four from 760 px, five from 1100 px). A card is a `<button>` with
@@ -222,7 +228,8 @@ row, the grid between the two edge fades, and the 60 px add button.
 - **Ingredients | Method:** real tab buttons with `aria-selected`. Switching flips the content with
   the Web Animations API — 225 ms to 90°, swap, 225 ms back — so the face can change height; the
   header stays still. With `prefers-reduced-motion` it cross-fades.
-- **Method:** numbered steps; under each, `stepLine(recipe, step, servings, opts)` in italics.
+- **Method:** numbered steps; under each, `stepLine(recipe, step, servings, opts)` in italics. Then the
+  recipe's cooking options, if any (§27), under a Cooking heading — also when there are no steps.
 - **Cups mode:** a weighed ingredient (g/kg) with no density stays as written, and a note under the list names them.
   With a Claude key on the device, **Look up cup measures** sends those names (minus ones already known to be
   weighed) to `claude.cupMeasures()`: grams per metric cup, or "not cup-measured". Densities in 0.03–2.5 g/ml are
@@ -232,7 +239,8 @@ row, the grid between the two edge fades, and the 60 px add button.
 - **Method tags** sit on a light rounded `--sunk` panel under each step.
 - **Nutrition** (under Ingredients): per serving from `recipe_nutrition` — it does not change with the
   stepper — and, when any ingredient is missing, "N need nutrition" with their names, which opens
-  Check ingredients and saves from there.
+  Check ingredients and saves from there. Missing is `ingredient_nutrition`'s `no_product` or
+  `unconvertible`; a seasoning is neither (§26).
 
 The sheet re-renders when state or prefs change, and closes itself if the recipe is deleted. On a wide screen it
 can show Ingredients and Method side by side (§25).
@@ -243,15 +251,18 @@ can show Ingredients and Method side by side (§25).
 
 - New recipes start on two tiles, **Enter ingredients** and **Import from web** (§15).
 - Fields: name; Serves stepper (1–100); Cuisine (a native `<select>` laid invisibly over a styled box
-  showing the flag, so the phone's own picker opens); Meal (three buttons); optional photo.
+  showing the flag, so the phone's own picker opens); Meal (four buttons, `.four`); optional photo.
 - **Photo:** chosen with a file input, resized on the device (`components/photo.js`: longest side
   1600 px, JPEG 0.82), previewed, and uploaded only on Save to
   `pinch-photos/<household_id>/<recipe_id>-<suffix>.jpg`. Replacing or removing it deletes the old
   file just before the save, for the same reason as `deleteRecipe`; an uploaded file is reused if the
   save is retried.
 - **Ingredients:** Scan barcode or Add manually; each row opens Add ingredient to edit or delete.
-  "needs nutrition" marks rows without a product, and "Check ingredients · N need nutrition" opens
-  §14 on the draft.
+  "needs nutrition" marks a row whose `nutritionStatus()` is `no_product` or `unconvertible` — the
+  same rule as the recipe card's count, so a linked product the amount can't reach ("2 each" against
+  a per-100 g product with no weight of one) is marked too. A seasoning shows "seasoning" instead.
+  "Check ingredients · N need nutrition" opens §14 on the draft.
+- **Cooking:** after the method, §27.
 - **Method editor:** steps are free text, numbered, and one is open at a time with its textarea and
   "Tap the ingredients this step uses" chips (a pressed chip shows a check). Arrows move a step
   (`moveStep`), the bin deletes it; there is no drag. Deleting an ingredient removes its tags
@@ -270,13 +281,19 @@ can show Ingredients and Method side by side (§25).
 `views/ingredient.js` (screen 09): name, amount, and a unit chip from the controlled list (`to taste`
 clears the amount). Typing a name lists **household products** that match ("Nutrition · from your
 products"); otherwise Scan barcode or From label. A linked product shows with Unlink. An ingredient
-can be saved without a product. For tsp, tbsp and cup the number box is replaced by a whole-number
+can be saved without a product. The **Seasoning** switch (§26) sits under the amount; while it is on there is
+no product part at all. A linked product has **Edit** (the product form, for every recipe that uses it) and
+Unlink. When the amount can't be counted only because the product lacks a weight of one item — `each`
+against a per-100 g product, or grams against a per-item one — the sheet asks "One … weighs __ g" and
+saves it on the product (`state.saveProduct`), which re-reads every recipe using it. For tsp, tbsp and cup the number box is replaced by a whole-number
 stepper and – ¼ ½ ¾, so a spoon or cup amount is always a quarter; an existing amount that isn't
 (a recipe's 0.33 tsp) is kept exactly, with a line saying so, until the picker is pressed.
 
 `views/product.js` (screen 10): name, brand, optional barcode (6–14 digits, unique in the household),
 nutrition per 100 g / 100 ml / item, all four macros required (0 is fine), optional weight of one
-item (hidden for per-100 ml products). Saved to the household with `state.saveProduct()`.
+item (hidden for per-100 ml products). Saved to the household with `state.saveProduct()`. Opened with an
+existing product (from Add ingredient's Edit, Check ingredients' Edit product, or a scan of one of your
+products) it edits that product, and says it changes in every recipe that uses it.
 
 Photos and Open Food Facts images are never stored as products; a product has no image.
 
@@ -307,7 +324,11 @@ Photos and Open Food Facts images are never stored as products; a product has no
 - Status per row uses `nutritionStatus()` (§18): done, needs nutrition, or "this amount can't be
   counted against it" when a product is linked but the units can't meet.
 - **One row is open at a time**: Rename (opens Add ingredient), Delete, the amount, the unit switch,
-  Scan / Products, From the label / Skip for now.
+  Scan / Products (Scan / **Edit product** when a product is linked), From the label, **Seasoning**,
+  Skip for now. Seasoning marks the row (§26) and moves on; an open seasoning row has only
+  "Not a seasoning". Seasonings and "to taste" rows are listed as not counted.
+- An `unconvertible` row whose product only lacks the weight of one item says "…until it has the
+  weight of one"; Edit product is where it is added.
 - **The unit switch converts the stored amount** using `unitOptions(unit, density)`: the
   ingredient's own unit plus cup, and cups can go to g (needs a density) or ml. A disabled option
   says why. Below it, the other units: "Same as 375 ml · about 200 g (plain flour density)". Into
@@ -329,13 +350,14 @@ then **Read recipe**. A link shows "Link found · site".
 - **Text** is split in the app by `splitRecipeText()` (Ingredients / Method headings, or short
   amount lines vs. sentences).
 - Either way `draftFromImport()` runs `parseIngredientLine()` on every ingredient line, gives every
-  row a fresh id, maps the category to a meal and the cuisine words to a code, and pre-tags each step
+  row a fresh id, maps the category to a meal (sauce, dressing, condiment, marinade, dip, gravy, salsa
+  and pesto are `sauce`) and the cuisine words to a code, and pre-tags each step
   with the ingredients it names (`suggestTags`). **Serves and Meal come from the recipe when it says**,
   else from the form.
 - Lines the parser can't read are sent once to Claude (`claude.splitLines`) when this device has a
   key; otherwise they stay as written for the cook to fix in Check ingredients.
-- Ingredients whose name matches a household product are linked automatically, then Check
-  ingredients opens, then the method editor.
+- Names that look like a seasoning are marked one (§26) and never linked; the other ingredients whose name
+  matches a household product are linked automatically. Then Check ingredients opens, then the method editor.
 
 **Claude, from the browser** (`js/claude.js`): the same pattern as BLOC — `fetch` to
 `api.anthropic.com/v1/messages` with `x-api-key` (the device's key) and
@@ -353,6 +375,7 @@ Pinch's shapes (tested). No Pinch server sees the key; the Edge Function holds n
   photos).
 - **Appearance:** System / Light / Dark, and Ingredients and method side by side (§25).
 - **Nutrition:** the Nutrition and barcodes switch (§24).
+- **Temperatures:** Celsius / Fahrenheit for cooking options, under Show amounts as (§27).
 - **Show amounts as:** Original (the stored number and unit, untidied: 122 g, 0.33 tsp) / As written
   (the same units, rounded for reading: 120 g) / Metric / Cups, and Cup size: Metric 250 ml / US 237 ml.
 - **Import from web:** the Claude key field (password input), saved on this device only, with
@@ -446,12 +469,13 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 141 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 164 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 
 The database rules — RLS, the atomic save, every nutrition cell, the household move, the BLOC views,
-photos, and the density table matching `js/lib/densities.js` — are tested in
+photos, the density table matching `js/lib/densities.js`, sauces, seasonings and cooking options
+(including a save from an app without them) — are tested in
 `silver-octo-invention/tools/schema-test` (`behaviour-pinch.mjs`, `20261019_pinch_verify.sql`).
 
 ## 22. Limits
@@ -529,3 +553,48 @@ side**, per device.
 
 **Double-tap zoom** is off everywhere (`touch-action: manipulation` on `html`): a quick second tap on a stepper is a
 second press. Pinch-to-zoom still works.
+
+## 26. Seasonings
+
+`ingredients.seasoning` (boolean, default false). A seasoning — a spice, herb, salt — is **never counted for
+nutrition**: `pinch.ingredient_nutrition` gives it `not_counted` exactly like an ingredient "to taste", with no
+kcal, so it never blocks `nutrition_complete`, and BLOC's `bloc_recipe_ingredients_v1` reads it as
+`has_nutrition = false`. `lib/units.js` `nutritionStatus()` has the same rule for drafts, and the demo backend
+too.
+
+- **Why it exists.** A spoon of paprika against a 0 kcal per-100 g product is `unconvertible` (spoons are a
+  volume; g ↔ ml is never converted), and no product at all is `no_product`: either way the recipe was never
+  complete for BLOC, for an ingredient whose nutrition doesn't matter.
+- **Suggested, never imposed.** `lib/cooking.js` `looksLikeSeasoning(name)` matches whole words from a short
+  list (salt, pepper, paprika, cumin, oregano…) and refuses food that shares a word ("red pepper", "peppers",
+  "… sauce", "… paste"). A NEW ingredient in Add ingredient follows its name until the switch is touched;
+  imported ingredients start marked. A saved ingredient is never changed for the cook.
+- **No product part** while on: no suggestions, no Scan barcode, no From label. A product already linked stays
+  linked and is simply not counted.
+- 🚨 A phone still on the previous app sends no `seasoning` key; `save_recipe` then keeps the stored flag
+  (§27 has the same rule for cooking options). Without that, its first save would clear every flag.
+
+## 27. Cooking options and temperatures
+
+`pinch.cooking_methods`: one row per way of cooking a recipe — `method` ∈ `air_fryer oven fan_oven hob grill
+microwave bbq slow_cooker other`, `name` (required for, and only for, `other`), optional `minutes` (whole,
+1–1440), `temp_c` (whole °C, 20–300) and `note` (≤ 200). It hangs off `recipes` by the composite key with
+`ON UPDATE / DELETE CASCADE`, so the household move carries it and deleting a recipe deletes it.
+`save_recipe` writes it in the same transaction as the rest.
+
+- **Editor:** a Cooking field after the method. Options are rows ("Air fryer · 12 min · 200°C", the note
+  under it); one is open at a time, with the method chips, an Other name, Time (min), Temp (°C or °F), Note,
+  up/down, delete and Done. Inputs commit on `change`, and the editor blurs the focused field before Save and
+  before adding another option, so a value still being typed is kept. `cookingProblems()` (in
+  `validateRecipe`, as `cooking.N`) mirrors the table's checks.
+- **Recipe sheet:** after the steps, "Cooking" with one card per option.
+- **Temperatures are stored in °C only.** °F is display: the person's **Temperatures** setting,
+  `user_metadata.pinch_temp_unit` (`'c' | 'f'`, missing = °C), saved on their login like Nutrition and
+  barcodes (`storage.tempUnit` / `setTempUnit`, `state.tempUnit`; `?demo` keeps it in
+  `localStorage['pinch.demo.tempUnit']`). °F shows to the nearest 5 (180 °C → 355°F); a typed °F is stored
+  as the nearest whole °C (350°F → 177 °C), which reads back as 350°F.
+- 🚨 **A save from a phone still on the previous app has no `cooking` key.** `save_recipe` only replaces
+  cooking options when the payload has a `cooking` array; the app always sends one, empty included, so
+  deleting every option still clears them. Treating a missing key as "none" would make an un-updated phone
+  wipe every recipe's cooking options the first time it saves.
+- Cooking options are recipe data, not nutrition: BLOC's views don't carry them.

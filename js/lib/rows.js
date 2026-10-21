@@ -5,14 +5,22 @@
 const byPosition = (a, b) => a.position - b.position || String(a.id).localeCompare(String(b.id));
 const num = (v) => (v == null || v === '' ? null : Number(v));
 
-// { recipes, ingredients, steps, tags } rows → recipe objects. Ingredients
-// and steps are ordered by position; tags keep ingredient-list order.
-export function rowsToRecipes({ recipes = [], ingredients = [], steps = [], tags = [] }) {
+// { recipes, ingredients, steps, tags, cooking } rows → recipe objects.
+// Ingredients, steps and cooking options are ordered by position; tags keep
+// ingredient-list order.
+export function rowsToRecipes({ recipes = [], ingredients = [], steps = [], tags = [], cooking = [] }) {
   const ingBy = new Map();
   for (const i of [...ingredients].sort(byPosition)) {
     if (!ingBy.has(i.recipe_id)) ingBy.set(i.recipe_id, []);
     ingBy.get(i.recipe_id).push({
-      id: i.id, name: i.name, qty: num(i.qty), unit: i.unit, productId: i.product_id ?? null,
+      id: i.id, name: i.name, qty: num(i.qty), unit: i.unit, productId: i.product_id ?? null, seasoning: i.seasoning === true,
+    });
+  }
+  const cookBy = new Map();
+  for (const c of [...cooking].sort(byPosition)) {
+    if (!cookBy.has(c.recipe_id)) cookBy.set(c.recipe_id, []);
+    cookBy.get(c.recipe_id).push({
+      id: c.id, method: c.method, name: c.name ?? null, minutes: num(c.minutes), tempC: num(c.temp_c), note: c.note ?? null,
     });
   }
   const tagBy = new Map();
@@ -41,10 +49,14 @@ export function rowsToRecipes({ recipes = [], ingredients = [], steps = [], tags
     updatedAt: r.updated_at ?? null,
     ingredients: ingBy.get(r.id) ?? [],
     steps: stepBy.get(r.id) ?? [],
+    cooking: cookBy.get(r.id) ?? [],
   }));
 }
 
 // recipe object → the pinch.save_recipe payload. position is the array index.
+// `cooking` is always sent (an empty list clears the recipe's options); the
+// database leaves them alone only when a payload has no `cooking` at all,
+// which is how an un-updated phone's save keeps them.
 export function recipeToPayload(recipe, householdId) {
   return {
     id: recipe.id,
@@ -57,9 +69,14 @@ export function recipeToPayload(recipe, householdId) {
     bloc_recipe_id: recipe.blocRecipeId || null,
     ingredients: recipe.ingredients.map((i, position) => ({
       id: i.id, position, name: i.name.trim(), qty: i.qty ?? null, unit: i.unit, product_id: i.productId || null,
+      seasoning: i.seasoning === true,
     })),
     steps: recipe.steps.map((s, position) => ({
       id: s.id, position, text: s.text, ingredient_ids: [...s.ingredientIds],
+    })),
+    cooking: (recipe.cooking ?? []).map((c, position) => ({
+      id: c.id, position, method: c.method, name: c.method === 'other' ? String(c.name ?? '').trim() || null : null,
+      minutes: c.minutes ?? null, temp_c: c.tempC ?? null, note: String(c.note ?? '').trim() || null,
     })),
   };
 }

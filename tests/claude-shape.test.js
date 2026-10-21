@@ -6,6 +6,9 @@ describe('recipeFromClaude', () => {
     const out = recipeFromClaude({ found: true, name: ' Dal ', servings: 4, ingredients: ['200g lentils', ' '], steps: ['Simmer.'], cuisine: 'in', meal: 'dinner' });
     assertEqual(out, { name: 'Dal', recipeYield: '4', recipeIngredient: ['200g lentils'], recipeInstructions: ['Simmer.'], recipeCuisine: 'IN', recipeCategory: 'dinner' });
   });
+  test('Claude may say a recipe is a sauce', () => {
+    assertEqual(recipeFromClaude({ found: true, name: 'Pesto', servings: 4, ingredients: ['basil'], steps: [], cuisine: 'IT', meal: 'sauce' }).recipeCategory, 'sauce');
+  });
   test('unknown servings, cuisine and meal become null', () => {
     const out = recipeFromClaude({ found: true, name: 'x', servings: 0, ingredients: ['1 egg'], steps: [], cuisine: '', meal: 'unknown' });
     assertEqual([out.recipeYield, out.recipeCuisine, out.recipeCategory], [null, null, null]);

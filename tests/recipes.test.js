@@ -1,5 +1,5 @@
 import { describe, test, assertEqual } from './kit.js';
-import { cuisinesInUse, filterRecipes, sortRecipes, splitMealPrefix, displayName, mealFromPrefix } from '../js/lib/recipes.js';
+import { cuisinesInUse, filterRecipes, sortRecipes, splitMealPrefix, displayName, mealFromPrefix, MEALS, mealLabel } from '../js/lib/recipes.js';
 
 // Only the fields these functions need. Real recipes have more.
 const r = (name, cuisine, meal = 'dinner') => ({ id: name, name, cuisine, meal });
@@ -42,6 +42,10 @@ describe('filterRecipes', () => {
     const out = filterRecipes(all, { mode: 'meal', value: null });
     assertEqual(out.map((x) => x.name), ['Carbonara', 'Muesli', 'Risotto']);
     assertEqual(out === all, false);
+  });
+  test('four meals, in order; a sauce is filed under Sauces', () => {
+    assertEqual(MEALS.map(mealLabel), ['Breakfast', 'Lunch', 'Dinner', 'Sauces']);
+    assertEqual(filterRecipes([...all, r('Pesto', 'IT', 'sauce')], { mode: 'meal', value: 'sauce' }).map((x) => x.name), ['Pesto']);
   });
   test('by meal', () => {
     assertEqual(filterRecipes(all, { mode: 'meal', value: 'breakfast' }).map((x) => x.name), ['Muesli']);
