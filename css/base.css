@@ -5,6 +5,10 @@
 
 html, body { height: 100%; }
 
+/* No double-tap zoom: a quick second tap on a stepper or a chip is a second
+   press, not a zoom. Pinch-to-zoom still works. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+
 body {
   margin: 0;
   background: var(--bg);

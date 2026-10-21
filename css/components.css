@@ -163,7 +163,8 @@
 .hero.flagged .tags { color: var(--muted); text-shadow: none; }
 .hero .close { position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, .32); color: #fff; }
 .hero .title-row { position: absolute; left: 20px; right: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
-.hero .edit { align-self: flex-end; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 4px 12px rgba(0, 0, 0, .12); }
+.hero .hero-actions { align-self: flex-end; display: flex; gap: 8px; }
+.hero .edit { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 4px 12px rgba(0, 0, 0, .12); }
 .hero .edit svg.i { width: 18px; height: 18px; }
 .hero h2 { margin: 0; font-weight: var(--display-weight); letter-spacing: var(--display-tracking); font-size: var(--fs-sheet-title); line-height: 1.25;
            /* The line clamp clips at the box edge, so the box keeps room for a g, j, p or y's tail. */
@@ -214,6 +215,11 @@
 .needs > span:first-child { font-size: 13.5px; font-weight: 600; }
 .needs .which { grid-column: 1; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .needs svg.i { grid-column: 2; grid-row: 1 / span 2; color: var(--muted); width: 18px; height: 18px; }
+
+/* Side by side (a wide screen, Settings › Appearance): no tabs, no flip;
+   Ingredients and Method are two columns under the stepper. */
+.sheet.split .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 28px; align-items: start; }
+.col-head { margin: 6px 4px 4px; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 
 /* ── editor (05, 06, 14, 15) ──────────────────────────────────────────── */
 .rows { list-style: none; margin: 0; padding: 0; }
@@ -381,6 +387,46 @@ button.row, label.row { cursor: pointer; }
 .recon th, .recon td { padding: 4px 8px; text-align: right; }
 .recon th:first-child, .recon td:first-child { text-align: left; color: var(--muted); }
 .recon tr.off td { color: #B3261E; font-weight: 700; }
+
+/* ── switch (iOS style) ───────────────────────────────────────────────── */
+.toggle { position: relative; flex-shrink: 0; width: 51px; height: 31px; margin-right: 6px; padding: 0; border: none; border-radius: 16px;
+          background: var(--line); transition: background .2s ease; }
+.toggle[aria-checked="true"] { background: var(--accent); }
+.toggle .knob { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, .2), 0 0 0 .5px rgba(0, 0, 0, .04); transition: transform .2s ease; }
+.toggle[aria-checked="true"] .knob { transform: translateX(20px); }
+.toggle:disabled { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .toggle, .toggle .knob { transition: none; } }
+
+/* ── card menu and Send to Listly ─────────────────────────────────────── */
+.layer-bottom .sheet.sheet-menu { top: auto; }
+.chips.wrap { flex-wrap: wrap; margin: 0; padding: 0; overflow: visible; }
+.pick-all { display: flex; gap: 2px; margin-right: -6px; }
+.pick-all .btn { height: 32px; padding: 0 8px; font-size: 13px; }
+.picks { list-style: none; margin: 0; padding: 0; }
+.pick { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.pick input { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--accent); }
+.pick .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick .txt b { font-size: 14.5px; font-weight: 600; }
+.pick .txt span { font-size: 12px; color: var(--muted); }
+.send-listly .sticky .btn svg.i { width: 20px; height: 20px; }
+
+/* ── tablets ──────────────────────────────────────────────────────────── */
+/* The recipe sheet grows; every bottom sheet becomes a centred panel. */
+@media (min-width: 760px) {
+  .layer-centre .sheet.sheet-recipe { max-width: 720px; }
+  .layer-centre .sheet.sheet-recipe.split { max-width: 1040px; }
+  .sheet-recipe .hero { height: 260px; }
+  .sheet-recipe .sheet-body { padding: 18px 22px 24px; }
+}
+@media (min-width: 760px) and (min-height: 600px) {
+  .layer-bottom .sheet { top: max(40px, 6vh); bottom: max(24px, 5vh); max-width: 600px; border-radius: var(--r-sheet);
+                         padding-bottom: 24px; box-shadow: var(--shadow-sheet); }
+  .layer-bottom .sheet .grabber { display: none; }
+  .layer-bottom .sheet .sticky { bottom: -24px; margin-bottom: -24px; padding-bottom: 24px; border-radius: 0 0 var(--r-sheet) var(--r-sheet); }
+  .layer-bottom .sheet.sheet-menu { top: 50%; bottom: auto; transform: translateY(-50%); }
+  .layer-bottom.open .sheet.sheet-menu { transform: translateY(-50%); }
+}
 
 /* ── toast ────────────────────────────────────────────────────────────── */
 .toast { position: fixed; z-index: 100; left: 50%; bottom: calc(108px + env(safe-area-inset-bottom)); transform: translate(-50%, 12px);

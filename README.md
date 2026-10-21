@@ -5,7 +5,7 @@ scaling, unit conversion, method steps tagged with the ingredients they use, and
 nutrition from a shared product library that each person's BLOC can read.
 
 Live at **https://adamnc02.github.io/pinch/**, served by GitHub Pages from the root of `main`, and
-made to be installed on an iPhone Home Screen. **Status: 1.0.**
+made to be installed on an iPhone Home Screen. **Status: 1.1.**
 
 ## Stack
 
@@ -32,7 +32,12 @@ tests and the `pinch-import` Edge Function live in
   ingredients**, which links each ingredient to a product.
 - **Products:** the household's library, found by barcode (Open Food Facts), by name, or typed in from
   the label. Products hold all the nutrition.
-- **Settings:** theme, amounts original / as written / metric / cups, cup size, the household code, an optional
+- **Send to Listly:** long-press a recipe card (or tap the basket on a recipe) to put its ingredients, scaled to the
+  servings you choose, on one of the household's Listly shopping lists as "Plain flour (500 g)". Items already on that
+  list, and "to taste" ones, start unticked.
+- **Tablets:** a wider grid and centred panels, and Ingredients and Method side by side (a switch in Settings).
+- **Settings:** theme, side by side, Nutrition and barcodes (off hides nutrition and the barcode prompts, for people
+  who don't use BLOC; saved on the account), amounts original / as written / metric / cups, cup size, the household code, an optional
   Claude key (kept on the phone, as in BLOC), backup and restore, and the one-off import from a BLOC
   backup.
 
@@ -100,6 +105,12 @@ field, so every screen shows the name without a leading bracketed meal (`display
 editor's name field edits only the part after it, and saving puts the stored prefix back unchanged. BLOC shows every
 household recipe as "(Meal) Name" from the meal field, so a recipe made in Pinch needs no prefix.
 
+### Pinch writes to Listly only the way Listly does.
+
+Send to Listly inserts `listly.shopping_items` rows exactly as Listly's own `insertItem()` would (its id shape, its
+append position, `never_had_items` set false, `user_id` and `created_at` left to the database) and nothing else. It never
+writes `shop_completions`, the ledger bridge. Amounts on a list are always metric, whatever Show amounts as says.
+
 ### Sign-in is required. There is no guest mode.
 
 Recipes live in the household on the server. `?demo` runs the sample recipes in one browser for
@@ -123,7 +134,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (113 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (141 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying

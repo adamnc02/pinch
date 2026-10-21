@@ -8,6 +8,9 @@
 // · The method editor: free-text steps, one open at a time, "Tap the
 //   ingredients this step uses" chips (tags are ingredient ids), arrows to
 //   move a step, the bin to delete. Deleting an ingredient removes its tags.
+// · With Nutrition and barcodes off (state.nutritionOn), there is no Scan
+//   barcode, no "needs nutrition" and no Check ingredients step after an
+//   import: the import goes straight to the method.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
@@ -146,17 +149,20 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   }
 
   function ingredientsField(problems) {
-    const needs = draft.ingredients.filter((i) => i.qty != null && i.unit !== 'to taste' && !i.productId).length;
+    const nutritionOn = state.get().nutritionOn;
+    const needs = nutritionOn ? draft.ingredients.filter((i) => i.qty != null && i.unit !== 'to taste' && !i.productId).length : 0;
     return h('div', { class: 'field' },
       h('div', { class: 'field-head' }, h('span', { class: 'label' }, 'Ingredients'),
         h('span', { class: 'hint' }, draft.ingredients.length ? `${draft.ingredients.length} added` : '')),
-      h('div', { class: 'two' },
-        h('button', { class: 'btn primary', type: 'button', onclick: scanNew }, icon('barcode'), 'Scan barcode'),
-        h('button', { class: 'btn secondary', type: 'button', onclick: () => editIngredient(null) }, 'Add manually')),
+      nutritionOn
+        ? h('div', { class: 'two' },
+          h('button', { class: 'btn primary', type: 'button', onclick: scanNew }, icon('barcode'), 'Scan barcode'),
+          h('button', { class: 'btn secondary', type: 'button', onclick: () => editIngredient(null) }, 'Add manually'))
+        : h('button', { class: 'btn secondary', type: 'button', onclick: () => editIngredient(null) }, icon('plus'), 'Add ingredient'),
       draft.ingredients.length
         ? h('ul', { class: 'rows' }, draft.ingredients.map((i, n) => {
           const bad = problems.some((p) => p.field === `ingredients.${n}`);
-          const missing = i.qty != null && i.unit !== 'to taste' && !i.productId;
+          const missing = nutritionOn && i.qty != null && i.unit !== 'to taste' && !i.productId;
           return h('li', {}, h('button', { class: `row-item ${bad ? 'bad' : ''}`, type: 'button', onclick: () => editIngredient(i.id) },
             h('span', { class: 'txt' }, h('span', {}, i.name || 'Unnamed'), missing ? h('em', {}, 'needs nutrition') : null),
             h('b', {}, formatAmount(i.qty, i.unit, { ...amountOpts(), density: state.densityForIngredient(i) }))));
@@ -317,11 +323,13 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
       }
       draft = { ...recipe, id: draft.id };
       mode = 'enter';
+      const toMethod = () => requestAnimationFrame(() => body.querySelector('.method')?.scrollIntoView({ block: 'start' }));
+      if (!state.get().nutritionOn) { editingStep = null; toMethod(); return; }
       openCheckIngredients({
         recipe: draft,
         finishLabel: 'Next: the method',
         onChange: (next) => { draft = next; render(); },
-        onFinish: (next) => { draft = next; editingStep = null; render(); requestAnimationFrame(() => body.querySelector('.method')?.scrollIntoView({ block: 'start' })); },
+        onFinish: (next) => { draft = next; editingStep = null; render(); toMethod(); },
       });
     } catch (e) {
       importNote = { error: true, text: e.message };

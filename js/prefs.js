@@ -3,7 +3,7 @@
 // the same recipe in different units.
 const KEY = 'pinch.prefs';
 const AI_KEY = 'pinch.anthropicKey';
-const DEFAULTS = { theme: 'system', amounts: 'written', cup: 'metric', homeMode: 'meal' };
+const DEFAULTS = { theme: 'system', amounts: 'written', cup: 'metric', homeMode: 'meal', sideBySide: true };
 
 let prefs = { ...DEFAULTS };
 try { prefs = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { /* private mode or corrupt */ }
@@ -46,6 +46,11 @@ export function addNoCupNames(names) {
   names.forEach((n) => set.add(n));
   try { localStorage.setItem(NO_CUP_KEY, JSON.stringify([...set])); } catch { /* private mode */ }
 }
+
+// A wide screen (a tablet, or a phone on its side) can show the recipe's
+// Ingredients and Method side by side; the same width the CSS uses.
+export const WIDE = '(min-width: 760px)';
+export const sideBySide = () => prefs.sideBySide !== false && matchMedia(WIDE).matches;
 
 // The display options formatAmount takes, from the current prefs.
 export const amountOpts = () => ({ mode: prefs.amounts, cup: prefs.cup });

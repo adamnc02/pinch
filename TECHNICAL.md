@@ -27,6 +27,9 @@ the database is in `silver-octo-invention/docs/pinch-SUPABASE.md`.
 20. [Service worker, splash and deploy](#20-service-worker-splash-and-deploy)
 21. [Tests](#21-tests)
 22. [Limits](#22-limits)
+23. [Send to Listly](#23-send-to-listly)
+24. [Nutrition and barcodes off](#24-nutrition-and-barcodes-off)
+25. [Tablets](#25-tablets)
 
 ---
 
@@ -58,12 +61,12 @@ js/
   prefs.js            per-device settings
   router.js           hash routes
   demo-data.js        the sample recipes for ?demo
-  components/         dom (h), icons, flag, sheet, stepper, toast, photo
+  components/         dom (h), icons, flag, sheet, stepper, toast, photo, toggle
   views/              home, recipe-sheet, editor, ingredient, product, scanner,
-                      check, settings, bloc-import, signin
+                      check, settings, bloc-import, signin, listly
   lib/                pure functions, all tested: recipes, scale, units, format,
                       densities, method, validate, rows, backup, off, parse,
-                      bloc-import, claude-shape, cuisines, ids
+                      bloc-import, claude-shape, cuisines, ids, shopping
 icons/, fonts/        app icon set, the sprite, self-hosted Plus Jakarta Sans
 ```
 
@@ -152,7 +155,8 @@ sessions; joining another household reloads the page so no write can use a stale
 ## 6. Per-device preferences
 
 `localStorage['pinch.prefs']`: `theme` (`system | light | dark`), `amounts`
-(`original | written | metric | cups`), `cup` (`metric | us`), `homeMode` (`meal | cuisine`). Not synced: two
+(`original | written | metric | cups`), `cup` (`metric | us`), `homeMode` (`meal | cuisine`), `sideBySide`
+(default true, §25), `listlyList` (the last Listly list sent to, §23). Not synced: two
 people can read one recipe in different units. `onPrefs(fn)` lets the open recipe sheet re-render
 when they change.
 
@@ -197,9 +201,13 @@ row, the grid between the two edge fades, and the 60 px add button.
 - Chips: By meal is `All · Breakfast · Lunch · Dinner`; By cuisine is `All` plus
   `cuisinesInUse(sorted recipes)`, each with a 20×14 flag. Switching mode resets to All; a cuisine
   whose last recipe is deleted falls back to All. The mode is remembered per device.
-- Cards are alphabetical, 200 px, two columns (three from 560 px). A card is a `<button>` with
+- Cards are alphabetical, 200 px, two columns (three from 560 px, four from 760 px, five from 1100 px). A card is a `<button>` with
   `data-recipe`; **one click listener on the grid** handles every card. Photo cards load a signed URL
   (§12); others show the 60×40 flag on `--sunk`.
+- **Long press** (500 ms without moving 10 px), a right-click or the context-menu key opens the card's menu
+  (`openCardMenu`, §23) instead of the recipe; the click that ends the press is swallowed, and only that one (a
+  press older than 1.5 s never swallows a later tap or Enter). Cards have `-webkit-touch-callout: none` and no text
+  selection, and card images ignore pointers, so iOS shows neither its callout nor an image preview.
 - Loading shows skeleton cards; offline or error shows a notice with Try again; an empty filter
   says so.
 
@@ -208,7 +216,7 @@ row, the grid between the two edge fades, and the 60 px add button.
 `views/recipe-sheet.js` (screens 03, 04).
 
 - **Hero:** the photo (or the flag on `--sunk`), the `--fade-sheet` fade, `MEAL · CUISINE`, Close, the
-  edit pencil, the title (two lines max).
+  basket (Send to Listly at the servings shown, §23), the edit pencil, the title (two lines max).
 - **Servings:** opens at `recipe.serves`; − / + by one, minimum 1. Every amount is
   `scaleRecipe(recipe, servings)` then `formatAmount(...)` with the current prefs. Nothing is saved.
 - **Ingredients | Method:** real tab buttons with `aria-selected`. Switching flips the content with
@@ -226,7 +234,8 @@ row, the grid between the two edge fades, and the 60 px add button.
   stepper — and, when any ingredient is missing, "N need nutrition" with their names, which opens
   Check ingredients and saves from there.
 
-The sheet re-renders when state or prefs change, and closes itself if the recipe is deleted.
+The sheet re-renders when state or prefs change, and closes itself if the recipe is deleted. On a wide screen it
+can show Ingredients and Method side by side (§25).
 
 ## 11. The editor and the method editor
 
@@ -342,7 +351,8 @@ Pinch's shapes (tested). No Pinch server sees the key; the Edge Function holds n
   returns the existing one — the same code as Listly and Shared Ledger) with Copy; Join a household
   (`redeem_household_link_code()`, then a reload); Sign out (also clears the offline cache, the remembered photo URLs and the service worker's cached
   photos).
-- **Appearance:** System / Light / Dark.
+- **Appearance:** System / Light / Dark, and Ingredients and method side by side (§25).
+- **Nutrition:** the Nutrition and barcodes switch (§24).
 - **Show amounts as:** Original (the stored number and unit, untidied: 122 g, 0.33 tsp) / As written
   (the same units, rounded for reading: 120 g) / Metric / Cups, and Cup size: Metric 250 ml / US 237 ml.
 - **Import from web:** the Claude key field (password input), saved on this device only, with
@@ -436,7 +446,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 113 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 141 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 
@@ -446,8 +456,9 @@ photos, and the density table matching `js/lib/densities.js` — are tested in
 
 ## 22. Limits
 
-- **BLOC's side is not built.** The `bloc_recipes_v1` views exist, but BLOC (`bloc-app`) does not yet
-  connect to this project, list household recipes or lock imported ones.
+- **BLOC reads, never writes.** BLOC (`bloc-app` TECHNICAL §176) lists household recipes from the `bloc_*_v1`
+  views and locks the ones imported from it; nothing it does is visible to Pinch, which is why Nutrition and barcodes
+  is a switch (§24) rather than detected.
 - **Sites that refuse server-side fetches** (several large recipe sites answer 403) can only be
   imported by pasting their text.
 - **Photos of a deleted household stay in the bucket**, readable by no one: SQL can't delete Storage
@@ -455,3 +466,66 @@ photos, and the density table matching `js/lib/densities.js` — are tested in
 - **Offline is read-only.** Pinch opens offline with its last copy; saving needs a connection.
 - **A product has one nutrition basis.** A cup of a per-item product, or millilitres of a per-100 g
   product, is reported missing rather than converted.
+
+## 23. Send to Listly
+
+`views/listly.js` with `lib/shopping.js`. Opened from a Home card's long-press menu (`openCardMenu`, whose one action it
+is) and from the basket on the recipe sheet, which passes the servings shown.
+
+- **The sheet:** a servings stepper, the shop (the household's `listly.shopping_lists`, in Listly's order: position, then
+  id, no position last; it starts on the last list sent to from this device, else the starred list, else the first),
+  and the items with a tick box each, All / None, and "Add N items to <list>".
+- **The wording** (`shoppingLines`): the recipe scaled to the servings, each line `Name (amount)`, the amount always in
+  `formatAmount`'s `metric` mode whatever Show amounts as says, so a list never reads "≈ 1½ cups" (spoons stay spoons;
+  `each` rounds to a whole number). Lines of one ingredient in one unit are added together, kg counted as g and l as ml;
+  different units of one name stay separate, because g ↔ ml is never converted. "To taste" and amount-less lines are the
+  name alone, and are dropped when the same name has an amount elsewhere.
+- **Unticked to begin with:** "to taste" lines, and lines whose name is on the chosen list and not yet ticked off
+  there (`alreadyOn`, comparing names with any trailing "(…)" removed). A box the cook has touched keeps their choice
+  when the shop or the servings change.
+- **The write** (`storage.addListlyItems`): one insert into `listly.shopping_items` for every item, so all land or none
+  do, then `never_had_items = false` on the list, as Listly's `insertItem()` does. Each row is exactly what Listly
+  writes: an 8-character id from Listly's alphabet (`listlyId`), `household_id`, `list_id`, `text`, `done: false`, and
+  positions after the list's last (`appendPosition`). `user_id` and `created_at` are left to their defaults
+  (`auth.uid()`, `now()`), so the partner gets Listly's usual "New stuff to buy" push five minutes later, naming this
+  person. PowerSync brings the rows down to both Listly apps.
+- 🚨 **Pinch is a second writer of Listly's tables.** A Listly migration that renames or tightens a column on
+  `shopping_items` or `shopping_lists` (a new NOT NULL, a CHECK on `text`) breaks Send to Listly; it is listed in
+  `silver-octo-invention/docs/listly-SUPABASE.md` and `pinch-SUPABASE.md`. Never write `shop_completions` from Pinch:
+  that table is the ledger bridge.
+- `?demo` keeps two sample lists in `localStorage['pinch.demo.listly.v1']` and never touches the network.
+
+## 24. Nutrition and barcodes off
+
+Settings › Nutrition › **Nutrition and barcodes**, an iOS-style switch (`components/toggle.js`). It is the person's,
+not the device's: saved in their auth `user_metadata.pinch_nutrition` (`storage.setNutrition`, `supabase.auth.updateUser`),
+so it follows them to every phone; missing means on. `state.start()` reads a fresh `getUser()` after loading, because
+the session's copy of the user can predate a switch flipped on another phone. `?demo` keeps it in
+`localStorage['pinch.demo.nutrition']`.
+
+BLOC never writes to this project, so nothing in the data says who uses BLOC: the switch is how a person who doesn't
+says so. Off (`state.nutritionOn` false):
+
+- the recipe sheet shows no Per serving block and no "N need nutrition";
+- the editor has one **Add ingredient** button instead of Scan barcode / Add manually, no "needs nutrition" marks and
+  no Check ingredients link;
+- Add ingredient shows no product part (no suggestions, Scan barcode or From label); a product already linked stays
+  linked;
+- an import goes straight from Read recipe to the method, without Check ingredients.
+
+Nothing stored changes: products, links and `recipe_nutrition` are the same either way, and BLOC's views are unaffected.
+
+## 25. Tablets
+
+From 760 px wide, Home widens to 1280 px with four or five columns (§9), the recipe sheet grows to 720 px, and, from
+600 px tall as well, every bottom sheet is a centred panel (600 px, rounded on all corners, no grab handle; the card menu
+sits in the middle). The sticky footers keep working because the panel's bottom padding is the same 24 px they offset.
+
+**Side by side.** `prefs.sideBySide()` is true when the `sideBySide` pref is on (the default) and the screen matches
+`WIDE` (`(min-width: 760px)`, the same width as the CSS). The recipe sheet then drops the tabs and the flip, shows
+Ingredients and Method as two columns under the stepper, and widens to 1040 px. It re-lays itself out when the width
+crosses 760 px (a rotation) or the pref changes. The switch is Settings › Appearance › **Ingredients and method side by
+side**, per device.
+
+**Double-tap zoom** is off everywhere (`touch-action: manipulation` on `html`): a quick second tap on a stepper is a
+second press. Pinch-to-zoom still works.

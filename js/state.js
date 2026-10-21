@@ -14,6 +14,7 @@ let state = {
   nutrition: {},          // recipe id → per-serving figures from pinch.recipe_nutrition
   ingredientStatus: {},   // ingredient id → 'ok' | 'no_product' | 'unconvertible' | 'not_counted'
   densities: {},
+  nutritionOn: true,      // the person's "Nutrition and barcodes" switch (storage.nutritionOn)
   status: 'loading',      // 'loading' | 'ready' | 'offline' | 'error'
   error: null,
 };
@@ -66,12 +67,14 @@ let generation = 0;
 export async function start(user) {
   const mine = ++generation;
   const cached = user ? storage.cachedData(user.id) : null;
-  set({ user, status: 'loading', error: null, ...(cached ?? {}) });
+  set({ user, nutritionOn: storage.nutritionOn(user), status: 'loading', error: null, ...(cached ?? {}) });
   try {
     const householdId = await storage.ensureHousehold();
     const data = await storage.loadAll(user?.id);
+    // The session's copy of the user can predate a switch flipped on another phone.
+    const fresh = (await storage.freshUser().catch(() => null)) ?? user;
     if (mine !== generation) return;
-    set({ ...data, householdId, status: 'ready', error: null });
+    set({ ...data, householdId, user: fresh, nutritionOn: storage.nutritionOn(fresh), status: 'ready', error: null });
   } catch (e) {
     if (mine !== generation) return;
     if (cached) set({ status: 'offline', error: e.message });
@@ -83,7 +86,7 @@ export const reload = () => start(state.user);
 
 export function reset() {
   generation += 1;
-  set({ user: null, householdId: null, recipes: [], products: [], nutrition: {}, ingredientStatus: {}, status: 'loading', error: null });
+  set({ user: null, householdId: null, recipes: [], products: [], nutrition: {}, ingredientStatus: {}, nutritionOn: true, status: 'loading', error: null });
 }
 
 function requireOnline() {
@@ -133,6 +136,12 @@ export async function addDensities(rows) {
   for (const r of rows) if (!(r.name in densities)) densities[r.name] = r.g_per_ml;
   set({ densities });
   await refreshNutrition(state.recipes.map((r) => r.id)).catch(() => {});
+}
+
+// The "Nutrition and barcodes" switch, saved on the person's login.
+export async function setNutritionOn(on) {
+  const user = await storage.setNutrition(on);
+  set({ nutritionOn: on, ...(user ? { user } : {}) });
 }
 
 export async function deleteProduct(id) {
