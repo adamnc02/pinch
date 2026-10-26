@@ -93,6 +93,7 @@ export function rowToProduct(p) {
     carbs: num(p.carbs),
     fat: num(p.fat),
     gramsPerItem: num(p.grams_per_item),
+    gramsPerTbsp: num(p.grams_per_tbsp),
     source: p.source ?? 'label',
     updatedAt: p.updated_at ?? null,
   };
@@ -111,6 +112,7 @@ export function productToRow(p, householdId) {
     carbs: p.carbs,
     fat: p.fat,
     grams_per_item: p.gramsPerItem || null,
+    grams_per_tbsp: p.basis === '100g' ? p.gramsPerTbsp || null : null,
     source: p.source ?? 'label',
   };
 }

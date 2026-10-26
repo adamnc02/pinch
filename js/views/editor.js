@@ -466,7 +466,7 @@ export function openEditor({ recipeId = null, onSaved, onDeleted } = {}) {
   }
 
   async function del() {
-    const ok = await confirmSheet({ title: `Delete \u201c${displayName(original.name)}\u201d?`, body: 'It goes for everyone in your household. This can’t be undone.', confirm: 'Delete', danger: true });
+    const ok = await confirmSheet({ title: `Delete \u201c${displayName(original.name)}\u201d?`, body: 'It goes for everyone in your household, in Pinch and in BLOC. This can’t be undone.', confirm: 'Delete', danger: true });
     if (!ok) return;
     try {
       await state.deleteRecipe(original.id);

@@ -19,8 +19,14 @@ export function demoData() {
     { id: id(6), name: 'Chickpeas in water', brand: 'Napolina', barcode: '8005121000207', basis: '100g', kcal: 115, protein: 7.2, carbs: 13.4, fat: 2.1, gramsPerItem: 240, source: 'off' },
     { id: id(7), name: 'Rolled oats', brand: 'Flahavan’s', barcode: '5011051000000', basis: '100g', kcal: 370, protein: 13, carbs: 60, fat: 7, gramsPerItem: null, source: 'off' },
     { id: id(8), name: 'Semi-skimmed milk', brand: null, barcode: null, basis: '100ml', kcal: 50, protein: 3.6, carbs: 4.8, fat: 1.8, gramsPerItem: null, source: 'label' },
+    // Peanut noodles: smooth peanut butter is linked but has no spoon weight, so its 2 tbsp can't be
+    // counted until one is entered; the crunchy one already has one, to find in Your products.
+    { id: id(9), name: 'Smooth peanut butter', brand: 'Whole Earth', barcode: null, basis: '100g', kcal: 597, protein: 25, carbs: 13, fat: 50, gramsPerItem: null, gramsPerTbsp: null, source: 'off' },
+    { id: id(10), name: 'Crunchy peanut butter', brand: 'Sun-Pat', barcode: null, basis: '100g', kcal: 611, protein: 26, carbs: 11, fat: 51, gramsPerItem: null, gramsPerTbsp: 16, source: 'label' },
+    { id: id(19), name: 'Rice noodles', brand: 'Blue Dragon', barcode: null, basis: '100g', kcal: 360, protein: 6, carbs: 82, fat: 0.5, gramsPerItem: null, source: 'label' },
+    { id: id(20), name: 'Soy sauce', brand: 'Kikkoman', barcode: null, basis: '100ml', kcal: 77, protein: 10, carbs: 3.2, fat: 0, gramsPerItem: null, source: 'label' },
   ];
-  const [spaghetti, guanciale, egg, yolk, pecorino, chickpeas, oats, milk] = products.map((p) => p.id);
+  const [spaghetti, guanciale, egg, yolk, pecorino, chickpeas, oats, milk, peanut, , noodles] = products.map((p) => p.id);
 
   const carb = [ing('Spaghetti', 400, 'g', spaghetti), ing('Guanciale', 150, 'g', guanciale), ing('Egg yolks', 4, 'each', yolk),
     ing('Whole eggs', 2, 'each', egg), ing('Pecorino Romano', 60, 'g', pecorino), ing('Parmigiano Reggiano', 30, 'g'), spice('Black pepper', 2 / 3, 'tbsp')];
@@ -32,6 +38,8 @@ export function demoData() {
   const croque = [ing('Bread', 4, 'each'), ing('Ham', 4, 'each'), ing('Gruyère', 100, 'g'), ing('Butter', 20, 'g'), ing('Milk', 200, 'ml', milk), ing('Eggs', 2, 'each', egg)];
   const risotto = [ing('Carnaroli rice', 320, 'g'), ing('Chicken stock', 1.2, 'l'), ing('Saffron', null, 'to taste'), ing('Butter', 60, 'g'), ing('Parmesan', 60, 'g')];
   const verde = [ing('Flat-leaf parsley', 1, 'cup'), ing('Capers', 1, 'tbsp'), ing('Olive oil', 100, 'ml'), ing('Red wine vinegar', 1, 'tbsp'), spice('Salt', null, 'to taste')];
+  const pnoodles = [ing('Rice noodles', 200, 'g', noodles), ing('Peanut butter', 2, 'tbsp', peanut), ing('Soy sauce', 2, 'tbsp'),
+    ing('Lime', 1, 'each'), spice('Chilli flakes', 0.5, 'tsp')];
   const katsuCook = [cook('air_fryer', 12, 200, 'Spray with oil and turn halfway'), cook('oven', 20, 200)];
 
   const recipes = [
@@ -66,6 +74,10 @@ export function demoData() {
     { id: id(18), name: 'Salsa verde', serves: 6, meal: 'sauce', cuisine: 'IT', photoPath: null, blocRecipeId: null, ingredients: verde, steps: [
       step('Chop the parsley and capers finely.', verde[0], verde[1]),
       step('Stir in the oil and vinegar, and season.', verde[2], verde[3], verde[4])] },
+    { id: id(21), name: 'Peanut noodles', serves: 2, meal: 'dinner', cuisine: 'TH', photoPath: null, blocRecipeId: null, ingredients: pnoodles, steps: [
+      step('Soak the noodles in just-boiled water until soft, then drain.', pnoodles[0]),
+      step('Whisk the peanut butter, soy sauce and lime juice with a splash of hot water.', pnoodles[1], pnoodles[2], pnoodles[3]),
+      step('Toss the noodles in the sauce and scatter with chilli flakes.', pnoodles[4])] },
   ];
   for (const r of recipes) r.cooking ??= [];
   return { recipes, products };

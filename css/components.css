@@ -271,11 +271,33 @@
 .cooking-view li b { display: block; font-size: var(--fs-step); font-weight: 600; font-variant-numeric: tabular-nums; }
 .cooking-view li span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
 
-/* Add ingredient: the weight of one item, when the amount needs it. */
-.item-weight { margin-top: 10px; padding: 12px 0; border-radius: 14px; background: var(--sunk); display: flex; flex-direction: column; gap: 8px; }
-.item-weight > p { margin: 0; padding: 0 12px; font-size: 13px; }
-.item-weight .key-row .unit-in { flex: 1; }
-.item-weight .key-row .unit-in .input { width: 100%; background: var(--surface); }
+/* The one measurement a linked product needs (measureBox): the weight of
+   1 tbsp or of one item. Outlined in the accent: it is the row's blocker. */
+.measure { margin-top: 10px; padding: 12px 0; border-radius: 14px; background: var(--sunk); display: flex; flex-direction: column; gap: 8px; }
+.measure.need { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.measure > b { padding: 0 12px; font-size: 14.5px; font-weight: 700; }
+.measure > p, .measure > .hint { margin: 0; padding: 0 12px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.measure > .hint:empty { display: none; }
+.measure .key-row { align-items: center; }
+.measure .key-row .eq { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.measure .key-row .unit-in { flex: 1; }
+.measure .key-row .unit-in .input { width: 100%; background: var(--bg); text-align: center; font-weight: 700; }
+.linked-acts { display: flex; gap: 4px; margin: -2px -6px 0; }
+.linked-acts .btn { padding: 0 8px; font-size: 13px; }
+.btn.start { justify-content: flex-start; padding: 0 4px; }
+
+/* Your products (views/products.js) */
+.search-in { position: relative; }
+.search-in > svg.i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
+.search-in .input { width: 100%; padding-left: 40px; }
+.product-results { display: flex; flex-direction: column; gap: 8px; }
+.product-results > .label { font-size: var(--fs-label); font-weight: 600; color: var(--muted); margin-top: 6px; }
+.products > .hint { margin-top: -10px; }
+
+/* The card menu's Delete recipe */
+.row.danger-text, .row.danger-text > svg.i { color: #B3261E; }
+:root[data-theme="dark"] .row.danger-text, :root[data-theme="dark"] .row.danger-text > svg.i { color: #F2B8B2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .row.danger-text, :root:not([data-theme="light"]) .row.danger-text > svg.i { color: #F2B8B2; } }
 
 /* ── settings (08) ────────────────────────────────────────────────────── */
 .group { display: flex; flex-direction: column; gap: 8px; }
@@ -375,6 +397,7 @@ button.row, label.row { cursor: pointer; }
 .status.done svg.i { width: 13px; height: 13px; stroke-width: 3; }
 .status.todo { border: 1.5px dashed var(--muted); }
 .status.skip { border: 1.5px solid var(--line); background: var(--sunk); }
+.status.half { border: 1.5px solid var(--accent); background: linear-gradient(90deg, var(--soft) 50%, transparent 50%); }
 .checks .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .checks .txt b { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .checks .txt span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -397,6 +420,20 @@ button.row, label.row { cursor: pointer; }
 .active .acts .btn.secondary { background: var(--surface); }
 .active .more { display: flex; justify-content: space-between; margin-top: 4px; }
 .active .more .btn { padding: 0 6px; font-size: 13px; }
+.active .suggest.linked { margin-top: 10px; }
+.active .suggest .btn { height: 36px; padding: 0 8px; font-size: 13px; }
+/* Product ✓ → the missing measurement */
+.track { list-style: none; margin: 12px 0 0; padding: 0; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+.track li { display: flex; align-items: center; gap: 6px; }
+.track li + li::before { content: ''; width: 28px; height: 2px; border-radius: 1px; background: var(--accent); margin-right: 2px; }
+.track .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; box-sizing: border-box; }
+.track .done { color: var(--accent); }
+.track .done .dot { background: var(--accent); color: var(--on-accent); }
+.track .done .dot svg.i { width: 11px; height: 11px; stroke-width: 3.5; }
+.track .now .dot { border: 2px solid var(--accent); background: var(--soft); }
+.sticky.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sticky.two .btn { min-width: 0; padding: 0 10px; font-size: 14px; }
+.sticky.two .btn span, .sticky .btn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layer-bottom .sheet > div.check { gap: 16px; }
 .sticky { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom)); margin: auto -20px calc(-24px - env(safe-area-inset-bottom));
           padding: 14px 20px calc(24px + env(safe-area-inset-bottom));

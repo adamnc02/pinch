@@ -15,6 +15,7 @@
 import { supabase, sfl, schemaProblem } from './supabase.js';
 import { rowsToRecipes, recipeToPayload, rowToProduct, productToRow, rowToNutrition } from './lib/rows.js';
 import { DENSITIES } from './lib/densities.js';
+import { gramsBySpoon } from './lib/units.js';
 import { demoData } from './demo-data.js';
 
 export const isDemo = new URLSearchParams(location.search).has('demo');
@@ -316,6 +317,7 @@ function demoNutritionFor(d, ids) {
       else if (p.basis === '100ml' && ['ml', 'l', 'tsp', 'tbsp', 'cup'].includes(i.unit)) f = ({ ml: 1, l: 1000, tsp: 5, tbsp: 15, cup: 250 }[i.unit] * i.qty) / 100;
       else if (p.basis === 'item' && i.unit === 'each') f = i.qty;
       else if (p.basis === '100g' && i.unit === 'each' && p.gramsPerItem) f = (i.qty * p.gramsPerItem) / 100;
+      else if (p.basis === '100g' && ['tsp', 'tbsp', 'cup'].includes(i.unit) && p.gramsPerTbsp) f = gramsBySpoon(i.qty, i.unit, p.gramsPerTbsp) / 100;
       else status = 'unconvertible';
       if (status === 'ok') { counted++; for (const k of Object.keys(t)) t[k] += f * p[k]; }
       if (status === 'not_counted') notCounted++;

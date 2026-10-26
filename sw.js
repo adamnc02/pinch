@@ -9,7 +9,7 @@
 // · Supabase data, auth, the import function and Open Food Facts always go
 //   to the network: recipes come from state.js's own offline copy instead.
 
-const VERSION = 'v9';
+const VERSION = 'v10';
 const SHELL = `pinch-shell-${VERSION}`;
 const RUNTIME = 'pinch-runtime-v1';
 
@@ -73,6 +73,7 @@ const SHELL_FILES = [
   'js/views/ingredient.js',
   'js/views/listly.js',
   'js/views/product.js',
+  'js/views/products.js',
   'js/views/recipe-sheet.js',
   'js/views/scanner.js',
   'js/views/settings.js',

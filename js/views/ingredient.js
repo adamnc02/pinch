@@ -6,9 +6,11 @@
 // An existing amount that isn't a quarter (a recipe's "⅓ tsp") is kept
 // exactly until the picker is touched.
 //
-// Typing a name lists matching HOUSEHOLD products first, so a product is
-// only scanned once. Otherwise: Scan barcode, or From label. An ingredient
-// can be saved without a product; it is then marked "needs nutrition".
+// Typing a name lists matching HOUSEHOLD products first, and "Search all
+// your products" opens the whole library (views/products.js), so a product is
+// only scanned once. Otherwise, as equal second choices: Scan barcode, or
+// From label. An ingredient can be saved without a product; it is then
+// marked "needs nutrition".
 // With Nutrition and barcodes off, the product part is not shown at all, and
 // a product already linked stays linked.
 //
@@ -16,16 +18,19 @@
 //   no "needs nutrition". A NEW ingredient whose name looks like one starts
 //   with the switch on (looksLikeSeasoning) until the switch is touched; a
 //   saved ingredient is never changed for the cook.
-// · A linked product can be edited here (it changes in every recipe that
-//   uses it). When the amount can't be counted only because the product has
-//   no weight of one item ("2 each" against a per-100 g product), the sheet
-//   asks for that weight and saves it on the product.
+// · A linked product can be edited, or changed for another, here (an edit
+//   changes it in every recipe that uses it). When the amount can't be
+//   counted only because the product lacks one measurement (missingMeasure),
+//   the sheet asks for it and saves it on the product: the weight of 1 tbsp
+//   for tsp, tbsp or cups of a per-100 g product, or the weight of one item
+//   for "2 each" against a per-100 g product. Any other unconvertible amount
+//   (ml of a per-100 g product) says why, and that no number fixes it.
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
 import { openSheet, sheetHead } from '../components/sheet.js';
 import * as state from '../state.js';
-import { UNITS, isWeight, nutritionStatus } from '../lib/units.js';
+import { UNITS, nutritionStatus, missingMeasure, gramsBySpoon } from '../lib/units.js';
 import { looksLikeSeasoning } from '../lib/cooking.js';
 import { toggle } from '../components/toggle.js';
 import { toast } from '../components/toast.js';
@@ -34,16 +39,13 @@ import { stepper } from '../components/stepper.js';
 import { blankIngredient } from '../lib/ids.js';
 import { openScanner } from './scanner.js';
 import { openProductForm } from './product.js';
+import { openProductSearch, productSummary } from './products.js';
+
+export { productSummary };
 
 const UNIT_CHIPS = ['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'each', 'to taste'];
 const QUARTER_UNITS = ['tsp', 'tbsp', 'cup'];
 const FRACTIONS = [[0, '–'], [0.25, '¼'], [0.5, '½'], [0.75, '¾']];
-
-export const productSummary = (p) => {
-  const per = { '100g': 'per 100 g', '100ml': 'per 100 ml', item: 'per item' }[p.basis];
-  return [p.brand, p.gramsPerItem && p.basis !== 'item' ? `${trimNumber(p.gramsPerItem, 1)} g each` : null, `${trimNumber(p.kcal ?? 0, 1)} kcal ${per}`]
-    .filter(Boolean).join(' · ');
-};
 
 export function openIngredientEditor({ ingredient = null, isNew = false, onSave, onDelete = null, title = null }) {
   const editing = Boolean(ingredient) && !isNew;
@@ -53,7 +55,7 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
   // Only a brand-new ingredient follows its name; a saved one keeps its flag.
   let seasoningTouched = editing || Boolean(ingredient?.seasoning);
   if (!seasoningTouched && ing.name) ing.seasoning = looksLikeSeasoning(ing.name);
-  let itemGramsText = '';
+  let measureText = '';
 
   const body = h('div', { class: 'ingredient' });
   const sheet = openSheet(body, { kind: 'bottom', label: title ?? (editing ? 'Edit ingredient' : 'Add ingredient') });
@@ -114,13 +116,19 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
         ? h('div', { class: 'field' }, h('span', { class: 'label' }, 'Nutrition'),
           h('div', { class: 'suggest linked' }, h('span', { class: 'pk' }, icon('check')),
             h('span', { class: 'txt' }, h('b', {}, product.name), h('span', {}, productSummary(product))),
-            h('button', { class: 'btn quiet', type: 'button', onclick: () => editProduct(product) }, 'Edit'),
-            h('button', { class: 'btn quiet', type: 'button', onclick: () => { ing.productId = null; render(); } }, 'Unlink')),
-          itemWeightPrompt(product))
+            h('button', { class: 'btn quiet', type: 'button', onclick: browse }, 'Change')),
+          h('div', { class: 'linked-acts' },
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => editProduct(product) }, icon('pencil'), 'Edit product'),
+            h('button', { class: 'btn quiet muted', type: 'button', onclick: () => { ing.productId = null; render(); } }, 'Unlink')),
+          measurePrompt(product))
         : suggestBox,
-      product || !nutritionOn ? null : h('div', { class: 'field' }, h('span', { class: 'label' }, suggestions.length ? 'Not there?' : 'Nutrition'),
+      product || !nutritionOn ? null : h('div', { class: 'field' },
+        state.get().products.length
+          ? h('button', { class: 'btn quiet start', type: 'button', onclick: browse }, icon('search'), `Search all ${state.get().products.length} of your products`)
+          : null,
+        h('span', { class: 'label' }, state.get().products.length ? 'Not in your products?' : 'Nutrition'),
         h('div', { class: 'two' },
-          h('button', { class: 'btn primary', type: 'button', onclick: scan }, icon('barcode'), 'Scan barcode'),
+          h('button', { class: 'btn secondary', type: 'button', onclick: scan }, icon('barcode'), 'Scan barcode'),
           h('button', { class: 'btn secondary', type: 'button', onclick: fromLabel }, icon('keyboard'), 'From label')),
         h('p', { class: 'hint' }, 'You can add it without nutrition. It’s marked “needs nutrition” until a product is linked.')),
       error ? h('p', { class: 'field-error', role: 'alert' }, error) : null,
@@ -158,40 +166,39 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
       exact ? null : h('p', { class: 'hint' }, `Now ${trimNumber(qty, 2)} ${ing.unit}, kept as it is unless you pick.`));
   }
 
-  // "2 each" against a per-100 g product (or grams against a per-item one)
-  // counts once the product knows what one item weighs.
-  function needsItemWeight(product) {
+  // The draft as it stands, with the amount being typed.
+  function draftNow() {
     const qty = Number(qtyText.replace(',', '.'));
-    const draft = { ...ing, qty: qtyText.trim() && Number.isFinite(qty) && qty > 0 ? qty : null };
-    if (nutritionStatus(draft, product, state.densityForIngredient(draft)) !== 'unconvertible') return false;
-    return (ing.unit === 'each' && product.basis === '100g') || (isWeight(ing.unit) && product.basis === 'item');
+    return { ...ing, qty: qtyText.trim() && Number.isFinite(qty) && qty > 0 ? qty : null };
   }
 
-  function itemWeightPrompt(product) {
-    if (!needsItemWeight(product)) return null;
-    const one = ing.name.trim() || product.name;
-    return h('div', { class: 'item-weight' },
-      h('p', {}, `${product.name} is per ${product.basis === 'item' ? 'item' : '100 g'}, so this amount can’t be counted until Pinch knows what one weighs.`),
-      h('div', { class: 'key-row' },
-        h('div', { class: 'unit-in' },
-          h('input', { class: 'input', inputmode: 'decimal', 'aria-label': `Weight of one ${one}`, placeholder: `One ${one.toLowerCase()} weighs`, value: itemGramsText,
-            oninput: (e) => { itemGramsText = e.target.value; } }),
-          h('em', {}, 'g')),
-        h('button', { class: 'btn primary', type: 'button', onclick: () => saveItemWeight(product) }, 'Save')),
-      h('p', { class: 'hint' }, 'Saved on the product, so every recipe using it can count it.'));
+  // When the amount can't be counted against the linked product, says why,
+  // and asks for the one measurement that would fix it, if there is one.
+  function measurePrompt(product) {
+    const draft = draftNow();
+    const density = state.densityForIngredient(draft);
+    if (nutritionStatus(draft, product, density) !== 'unconvertible') return null;
+    const need = missingMeasure(draft, product, density);
+    return measureBox({
+      need, product, unit: ing.unit, qty: draft.qty, name: ing.name.trim() || product.name,
+      value: measureText, onInput: (v) => { measureText = v; },
+      onSave: (grams) => saveMeasure(product, need, grams),
+    });
   }
 
-  async function saveItemWeight(product) {
-    const grams = Number(itemGramsText.replace(',', '.'));
-    if (!(Number.isFinite(grams) && grams > 0)) { toast('Enter the weight of one, in grams.', { error: true }); return; }
+  async function saveMeasure(product, need, grams) {
     try {
-      await state.saveProduct({ ...product, gramsPerItem: grams });
-      itemGramsText = '';
+      await state.saveProduct({ ...product, [need === 'spoon' ? 'gramsPerTbsp' : 'gramsPerItem']: grams });
+      measureText = '';
       toast('Weight saved');
       render();
     } catch (e) {
       toast(e.message, { error: true });
     }
+  }
+
+  function browse() {
+    openProductSearch({ forName: ing.name.trim(), onPick: link });
   }
 
   function editProduct(product) {
@@ -225,4 +232,58 @@ export function openIngredientEditor({ ingredient = null, isNew = false, onSave,
 
   render();
   return sheet;
+}
+
+// The box shown when a linked product can't count this amount. `need` is
+// missingMeasure()'s answer: 'spoon' asks for the weight of 1 tbsp, 'item'
+// for the weight of one; null says no number on the product would help.
+// Shared by Add ingredient and Check ingredients, where it is the one
+// primary action of the row: scanning again can never fix this.
+const SPOON_WORDS = { tsp: 'teaspoons', tbsp: 'tablespoons', cup: 'cups' };
+export function measureBox({ need, product, unit, qty, name, value = '', onInput, onSave }) {
+  const per = { '100g': 'per 100 g', '100ml': 'per 100 ml', item: 'per item' }[product.basis];
+  if (!need) {
+    return h('div', { class: 'measure' },
+      h('b', {}, 'This amount can’t be counted'),
+      h('p', {}, `${product.name} is ${per}, and an amount in ${unit} can’t be turned into that. Change the amount’s unit, or link a different product.`));
+  }
+  const spoon = need === 'spoon';
+  let text = value;
+  const preview = h('span', { class: 'hint' });
+  const showPreview = () => {
+    const g = Number(text.replace(',', '.'));
+    const grams = spoon ? gramsBySpoon(qty, unit, g) : null;
+    preview.textContent = grams ? `${trimNumber(qty, 2)} ${unit} = ${trimNumber(grams, 1)} g` : '';
+  };
+  const save = () => {
+    const grams = Number(text.replace(',', '.'));
+    if (!(Number.isFinite(grams) && grams > 0 && (!spoon || grams <= 100))) {
+      toast(spoon ? 'Enter the weight of 1 tbsp, above 0 and up to 100 g.' : 'Enter the weight of one, in grams.', { error: true });
+      return;
+    }
+    onSave(grams);
+  };
+  const one = name.toLowerCase();
+  showPreview();
+  return h('div', { class: 'measure need' },
+    h('b', {}, spoon ? 'How much does 1 tbsp weigh?' : `How much does one ${one} weigh?`),
+    h('p', {}, spoon
+      ? `${product.name} is per 100 g and this amount is in ${SPOON_WORDS[unit]}. Weigh a level tablespoon, or check the jar.`
+      : `${product.name} is ${per}, so this amount can’t be counted until Pinch knows what one weighs.`),
+    h('div', { class: 'key-row' },
+      spoon ? h('span', { class: 'eq' }, '1 tbsp =') : null,
+      h('div', { class: 'unit-in' },
+        h('input', {
+          class: 'input', inputmode: 'decimal', value: text,
+          'aria-label': spoon ? `Grams in 1 tbsp of ${product.name}` : `Weight of one ${one}`,
+          placeholder: spoon ? '' : `One ${one} weighs`,
+          oninput: (e) => { text = e.target.value; onInput?.(text); showPreview(); },
+          onkeydown: (e) => { if (e.key === 'Enter') save(); },
+        }),
+        h('em', {}, 'g')),
+      h('button', { class: 'btn primary', type: 'button', onclick: save }, 'Save')),
+    preview,
+    h('p', { class: 'hint' }, spoon
+      ? 'Saved on the product, so every recipe measuring it in tsp, tbsp or cups counts too.'
+      : 'Saved on the product, so every recipe using it can count it.'));
 }

@@ -5,7 +5,7 @@ scaling, unit conversion, method steps tagged with the ingredients they use, and
 nutrition from a shared product library that each person's BLOC can read.
 
 Live at **https://adamnc02.github.io/pinch/**, served by GitHub Pages from the root of `main`, and
-made to be installed on an iPhone Home Screen. **Status: 1.2.1.**
+made to be installed on an iPhone Home Screen. **Status: 1.3.**
 
 ## Stack
 
@@ -32,17 +32,21 @@ tests and the `pinch-import` Edge Function live in
   from the web by pasting a link or the recipe's text (a phone note's checklist and wrapped numbered steps
   included; names come out in title case, and the cooking options the method states are filled in). Either way
   the result lands in **Check
-  ingredients**, which links each ingredient to a product. Nothing needs a barcode to be saved: an
-  ingredient without a product is marked "needs nutrition" and can be scanned later from the recipe.
+  ingredients**, which links each ingredient to a product and shows, for each one, the single thing it still
+  needs (a product, or a measurement such as the weight of 1 tbsp). Nothing needs a barcode to be saved: an
+  ingredient without a product is marked "needs nutrition" and can be finished later from the recipe.
 - **Seasonings:** an ingredient marked Seasoning (spices, herbs, salt) is never counted for nutrition,
   never asks for a barcode and never stops BLOC using the recipe. Pinch suggests it for names like
   paprika or cumin.
 - **Cooking options:** any number per recipe, each a method (air fryer, oven, fan oven, hob, grill,
   microwave, BBQ, slow cooker or your own), a time, a temperature and a note.
-- **Products:** the household's library, found by barcode (Open Food Facts), by name, or typed in from
-  the label. Products hold all the nutrition, and a linked product can be edited from the ingredient —
-  including the weight of one item, which "2 eggs" needs against a per-100 g product.
-- **Send to Listly:** long-press a recipe card (or tap the basket on a recipe) to put its ingredients, scaled to the
+- **Products:** the household's library, searched by name, brand or barcode (**Your products**), found by
+  scanning a barcode (Open Food Facts), or typed in from the label. Products hold all the nutrition, and a
+  linked product can be edited or changed from the ingredient — including the weight of one item, which
+  "2 eggs" needs against a per-100 g product, and the weight of 1 tbsp, which "2 tbsp peanut butter" needs.
+- **The card menu:** long-press a recipe card for Send to Listly, Edit recipe and Delete recipe. Deleting asks
+  first, and removes the recipe for the whole household, in Pinch and in BLOC.
+- **Send to Listly:** from the card menu (or the basket on a recipe), put its ingredients, scaled to the
   servings you choose, on one of the household's Listly shopping lists as "Plain flour (500 g)". Items already on that
   list, and "to taste" ones, start unticked.
 - **Tablets:** a wider grid and centred panels, and Ingredients and Method side by side (a switch in Settings).
@@ -63,7 +67,10 @@ changes `serves`, and nothing the display does is saved.
 ### Conversions only go to or from cups. Grams and millilitres are never converted.
 
 Volume units convert by fixed arithmetic; g ↔ cup needs the ingredient's density; **g ↔ ml is never
-offered** and returns an error rather than a guess. A stored `cup` is a metric 250 ml cup; US cups are
+offered** and returns an error rather than a guess. The one way a spoon of a weighed product is counted is a
+**measurement**: a per-100 g product's weight of 1 tbsp (tsp is a third of it, a cup 250⁄15 of it, ahead of the density
+table), entered by the cook and saved on the product. Millilitres of a per-100 g product are never counted, weight of
+1 tbsp or not. A stored `cup` is a metric 250 ml cup; US cups are
 a display setting. Cups show ¼ ½ ¾ only when the value really is that quarter (BLOC's `fmtInch` rule)
 and "≈" when a value was snapped. The database's nutrition view follows the same rule, the app's
 density table (`js/lib/densities.js`, 187 foods) must equal the `pinch.densities` seed, and both find a density the same
@@ -151,7 +158,7 @@ worker need https, so test those on the live URL.
 ## Tests
 
 Open **http://localhost:8000/tests.html** — the browser test kit runs every `tests/*.test.js` and shows
-pass/fail counts (179 tests over the pure logic in `js/lib/`). The database side is tested in
+pass/fail counts (185 tests over the pure logic in `js/lib/`). The database side is tested in
 `silver-octo-invention/tools/schema-test` (`npm run check:pinch`, `npm run behaviour:pinch`).
 
 ## Deploying
