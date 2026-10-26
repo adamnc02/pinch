@@ -1,7 +1,9 @@
 // New product (screen 10): a product typed in from its label, or a scanned
 // one being corrected. Nutrition per 100 g, per 100 ml or per item, as the
-// four BLOC uses (kcal, protein, carbs, fat), and an optional weight of one
-// item so "2 tins" can become grams. Saved to the household's products.
+// four BLOC uses (kcal, protein, carbs, fat), an optional weight of one
+// item so "2 tins" can become grams, and, for a per-100 g product, an
+// optional weight of 1 tbsp so spoons and cups of it can be counted. Saved
+// to the household's products.
 // Opened with an existing product (`initial.id`), it edits that product for
 // every recipe that links it, and says so.
 
@@ -12,9 +14,9 @@ import * as state from '../state.js';
 import { trimNumber } from '../lib/format.js';
 
 export function openProductForm({ initial = {}, onSaved, onClose, title = 'New product' }) {
-  const p = { name: '', brand: '', barcode: '', basis: '100g', kcal: null, protein: null, carbs: null, fat: null, gramsPerItem: null, source: 'label', ...initial };
+  const p = { name: '', brand: '', barcode: '', basis: '100g', kcal: null, protein: null, carbs: null, fat: null, gramsPerItem: null, gramsPerTbsp: null, source: 'label', ...initial };
   const text = (v) => (v == null ? '' : trimNumber(Number(v), 2));
-  const vals = { kcal: text(p.kcal), protein: text(p.protein), carbs: text(p.carbs), fat: text(p.fat), gramsPerItem: text(p.gramsPerItem) };
+  const vals = { kcal: text(p.kcal), protein: text(p.protein), carbs: text(p.carbs), fat: text(p.fat), gramsPerItem: text(p.gramsPerItem), gramsPerTbsp: text(p.gramsPerTbsp) };
   let error = null;
   let busy = false;
 
@@ -40,6 +42,9 @@ export function openProductForm({ initial = {}, onSaved, onClose, title = 'New p
       p.basis === '100ml' ? null : h('div', { class: 'field' }, h('label', { for: 'm-gramsPerItem' }, 'Weight of one item'),
         h('div', { class: 'unit-in' }, h('input', { id: 'm-gramsPerItem', class: 'input', inputmode: 'decimal', value: vals.gramsPerItem, placeholder: 'Optional', oninput: (e) => { vals.gramsPerItem = e.target.value; } }), h('em', {}, 'g')),
         h('p', { class: 'hint' }, p.basis === 'item' ? 'Lets an amount in grams be counted against this item.' : 'Lets “2 tins” become grams. Use the drained weight if the recipe drains it.')),
+      p.basis !== '100g' ? null : h('div', { class: 'field' }, h('label', { for: 'm-gramsPerTbsp' }, 'Weight of 1 tbsp'),
+        h('div', { class: 'unit-in' }, h('input', { id: 'm-gramsPerTbsp', class: 'input', inputmode: 'decimal', value: vals.gramsPerTbsp, placeholder: 'Optional', oninput: (e) => { vals.gramsPerTbsp = e.target.value; } }), h('em', {}, 'g')),
+        h('p', { class: 'hint' }, 'Lets tsp, tbsp and cups of it be counted. Weigh a level tablespoon.')),
       p.id ? h('p', { class: 'hint' }, 'Changes this product in every recipe that uses it.') : null,
       error ? h('p', { class: 'field-error', role: 'alert' }, error) : null,
       h('button', { class: 'btn primary big', type: 'button', disabled: busy, onclick: save }, busy ? 'Saving…' : 'Save product'));
@@ -49,17 +54,19 @@ export function openProductForm({ initial = {}, onSaved, onClose, title = 'New p
     const num = (s) => (String(s).trim() === '' ? null : Number(String(s).replace(',', '.')));
     const macros = { kcal: num(vals.kcal), protein: num(vals.protein), carbs: num(vals.carbs), fat: num(vals.fat) };
     const gramsPerItem = p.basis === '100ml' ? null : num(vals.gramsPerItem);
+    const gramsPerTbsp = p.basis === '100g' ? num(vals.gramsPerTbsp) : null;
     const barcode = String(p.barcode ?? '').replace(/\s/g, '');
     if (!String(p.name).trim()) error = 'Give the product a name.';
     else if (Object.values(macros).some((v) => v == null || !Number.isFinite(v) || v < 0)) error = 'Fill in all four values from the label (0 is fine).';
     else if (gramsPerItem != null && !(gramsPerItem > 0)) error = 'The weight of one item must be above 0, or empty.';
+    else if (gramsPerTbsp != null && !(gramsPerTbsp > 0 && gramsPerTbsp <= 100)) error = 'The weight of 1 tbsp must be above 0 and up to 100 g, or empty.';
     else if (barcode && !/^\d{6,14}$/.test(barcode)) error = 'A barcode is 6 to 14 digits.';
     else if (barcode && state.productByBarcode(barcode) && state.productByBarcode(barcode).id !== p.id) error = 'That barcode is already one of your products.';
     else error = null;
     if (error) { render(); return; }
     busy = true; render();
     try {
-      const saved = await state.saveProduct({ ...p, ...macros, gramsPerItem, barcode: barcode || null, name: p.name.trim(), brand: p.brand?.trim() || null });
+      const saved = await state.saveProduct({ ...p, ...macros, gramsPerItem, gramsPerTbsp, barcode: barcode || null, name: p.name.trim(), brand: p.brand?.trim() || null });
       sheet.close();
       toast('Product saved');
       onSaved?.(saved);

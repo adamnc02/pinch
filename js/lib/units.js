@@ -13,6 +13,8 @@ export const CUP_ML = { metric: 250, us: 236.6 };
 
 const ML = { ml: 1, l: 1000, tsp: 5, tbsp: 15 };
 const G = { g: 1, kg: 1000 };
+const SPOONS = ['tsp', 'tbsp'];
+const TBSP_PER = { tsp: 1 / 3, tbsp: 1, cup: STORED_CUP_ML / 15 };
 
 export const isVolume = (u) => u in ML || u === 'cup';
 export const isWeight = (u) => u in G;
@@ -70,15 +72,40 @@ export function unitOptions(unit, density) {
 // status of a draft that isn't saved yet. The saved figures come only from
 // the view. Returns 'ok' | 'unconvertible' | 'no_product' | 'not_counted'.
 // A seasoning is never counted, whatever its amount or product.
+//
+// A per-100 g product's spoon weight (gramsPerTbsp, measured: "1 tbsp =
+// 16 g") counts tsp, tbsp and cup of it. It is a measurement, not a
+// conversion, so ml and l of a per-100 g product are still never counted.
 export function nutritionStatus(ingredient, product, density) {
   const { qty, unit } = ingredient;
   if (ingredient.seasoning || qty == null || unit === 'to taste') return 'not_counted';
   if (!product) return 'no_product';
   const gpi = product.gramsPerItem;
+  const gpt = product.gramsPerTbsp;
   const ok = {
-    '100g': isWeight(unit) || (unit === 'cup' && density > 0) || (unit === 'each' && gpi > 0),
+    '100g': isWeight(unit) || (SPOONS.includes(unit) && gpt > 0) || (unit === 'cup' && (gpt > 0 || density > 0)) || (unit === 'each' && gpi > 0),
     '100ml': isVolume(unit),
     item: unit === 'each' || (isWeight(unit) && gpi > 0),
   }[product.basis];
   return ok ? 'ok' : 'unconvertible';
+}
+
+// What a linked product is missing for this amount to be counted, when one
+// number on the product would fix it: 'spoon' (the weight of 1 tbsp, for
+// tsp, tbsp or cup of a per-100 g product) or 'item' (the weight of one, for
+// "2 each" of a per-100 g product or grams of a per-item one). null when
+// the amount already counts, or when no measurement can help (ml of a
+// per-100 g product, a cup of a per-item one).
+export function missingMeasure(ingredient, product, density) {
+  if (!product || nutritionStatus(ingredient, product, density) !== 'unconvertible') return null;
+  const { unit } = ingredient;
+  if (product.basis === '100g' && (SPOONS.includes(unit) || unit === 'cup')) return 'spoon';
+  if ((unit === 'each' && product.basis === '100g') || (isWeight(unit) && product.basis === 'item')) return 'item';
+  return null;
+}
+
+// Grams of a spoon or cup amount by a product's tbsp weight, or null.
+export function gramsBySpoon(qty, unit, gramsPerTbsp) {
+  if (!(qty > 0) || !(gramsPerTbsp > 0) || !(unit in TBSP_PER)) return null;
+  return qty * TBSP_PER[unit] * gramsPerTbsp;
 }

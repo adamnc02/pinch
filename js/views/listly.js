@@ -14,13 +14,14 @@
 
 import { h, clear } from '../components/dom.js';
 import { icon } from '../components/icons.js';
-import { openSheet, sheetHead } from '../components/sheet.js';
+import { openSheet, sheetHead, confirmSheet } from '../components/sheet.js';
 import { stepper } from '../components/stepper.js';
 import { toast } from '../components/toast.js';
 import * as state from '../state.js';
 import * as storage from '../storage.js';
 import { getPrefs, setPref } from '../prefs.js';
 import { displayName } from '../lib/recipes.js';
+import { openEditor } from './editor.js';
 import { shoppingLines, alreadyOn, appendPosition, listlyId, sortLists } from '../lib/shopping.js';
 
 export function openSendToListly(recipeId, { servings: startServings } = {}) {
@@ -142,16 +143,37 @@ export function openSendToListly(recipeId, { servings: startServings } = {}) {
   return sheet;
 }
 
-// The long-press menu on a Home card. Send to Listly is its one action.
+// The long-press menu on a Home card: Send to Listly, Edit recipe, and
+// Delete recipe (asked first; the same delete as the editor's).
 export function openCardMenu(recipeId) {
   const recipe = state.getRecipe(recipeId);
   if (!recipe) return null;
+  const name = displayName(recipe.name);
   const s = openSheet(h('div', { class: 'card-menu' },
-    sheetHead(displayName(recipe.name), { onClose: () => s.close() }),
+    sheetHead(name, { onClose: () => s.close() }),
     h('div', { class: 'list' },
       h('button', { class: 'row', type: 'button', onclick: async () => { await s.close(); openSendToListly(recipeId); } },
         icon('basket'), h('span', { class: 'txt' }, h('b', {}, 'Send to Listly'), h('span', {}, 'Add its ingredients to a shopping list')),
-        h('span', { class: 'end' }, icon('chevron-right'))))),
-  { kind: 'bottom', label: displayName(recipe.name), className: 'sheet-menu' });
+        h('span', { class: 'end' }, icon('chevron-right'))),
+      h('button', { class: 'row', type: 'button', onclick: async () => { await s.close(); openEditor({ recipeId }); } },
+        icon('pencil'), h('span', { class: 'txt' }, h('b', {}, 'Edit recipe')),
+        h('span', { class: 'end' }, icon('chevron-right'))),
+      h('button', { class: 'row danger-text', type: 'button', onclick: async () => { await s.close(); deleteFromMenu(recipeId, name); } },
+        icon('trash'), h('span', { class: 'txt' }, h('b', {}, 'Delete recipe')))),
+  ),
+  { kind: 'bottom', label: name, className: 'sheet-menu' });
   return s;
 }
+
+async function deleteFromMenu(recipeId, name) {
+  const ok = await confirmSheet({ title: `Delete \u201c${name}\u201d?`, body: DELETE_WARNING, confirm: 'Delete', danger: true });
+  if (!ok) return;
+  try {
+    await state.deleteRecipe(recipeId);
+    toast('Recipe deleted');
+  } catch (e) {
+    toast(e.message, { error: true });
+  }
+}
+
+const DELETE_WARNING = 'It goes for everyone in your household, in Pinch and in BLOC. This can\u2019t be undone.';

@@ -3,16 +3,23 @@
 //
 // · "N of M have nutrition" counts the ingredients that will be counted.
 // · One row is open at a time: rename (the pencil opens Add ingredient),
-//   delete, the amount with a unit switch, Scan / Products, From the label /
-//   Skip for now.
+//   delete, the amount with a unit switch, then what the row still needs:
+//   - no product: Your products (the library, views/products.js) and Scan,
+//     as equal choices, plus From the label;
+//   - a linked product that can't count this amount: a two-step track
+//     (Product ✓ → the missing measurement) and measureBox() as the row's
+//     ONE primary action — the weight of 1 tbsp, or of one item. Scan is not
+//     offered once a product is linked: scanning again links the same
+//     product and can never fix an amount (Change picks another product).
+// · The footer moves on to the next row that needs something ("Next: …"),
+//   whatever that is; it never assumes the next step is a scan.
 // · The unit switch CONVERTS the stored amount, under the cups-only rule:
 //   the ingredient's own unit plus cup, and an amount in cups can go to g
 //   or ml. g ↔ cup needs a density; without one that option is disabled,
 //   with the reason. g ↔ ml is never offered.
 // · "To taste" rows and seasonings are listed as not counted. An open row
 //   can be marked a seasoning (it then needs nothing) or unmarked.
-// · A linked product can be edited from its row (Edit product): that is how
-//   a per-100 g product gets the weight of one item that "2 each" needs.
+// · A linked product can be edited from its row (Edit product).
 //
 // Works on a draft: onChange(recipe) after every edit, onFinish(recipe) at
 // the end. With `saveOnFinish`, the finish button saves the recipe itself.
@@ -23,10 +30,11 @@ import { openSheet, sheetHead, confirmSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import * as state from '../state.js';
 import { amountOpts } from '../prefs.js';
-import { convert, unitOptions, nutritionStatus, isWeight } from '../lib/units.js';
+import { convert, unitOptions, nutritionStatus, missingMeasure } from '../lib/units.js';
 import { formatAmount, qtyInput, quarters, isQuarter, trimNumber } from '../lib/format.js';
 import { removeIngredient } from '../lib/method.js';
-import { openIngredientEditor, productSummary } from './ingredient.js';
+import { openIngredientEditor, productSummary, measureBox } from './ingredient.js';
+import { openProductSearch } from './products.js';
 import { displayName } from '../lib/recipes.js';
 import { openScanner } from './scanner.js';
 import { openProductForm } from './product.js';
@@ -75,7 +83,8 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
     const all = counted();
     const done = all.filter((i) => status(i) === 'ok').length;
     const left = needing();
-    const scanTarget = left.find((i) => i.id !== open && !skipped.has(i.id)) ?? left.find((i) => i.id === open) ?? null;
+    const nextTarget = left.find((i) => i.id !== open && !skipped.has(i.id)) ?? null;
+    const finishText = busy ? 'Saving…' : left.length ? `${finishLabel} · ${left.length} later` : finishLabel;
 
     clear(body,
       sheetHead('Check ingredients', { onClose: () => sheet.close() }),
@@ -85,10 +94,18 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
         h('div', { class: 'lbl' }, h('span', {}, `${displayName(draft.name) || 'Recipe'} · ${draft.ingredients.length} ingredients`),
           h('span', {}, h('b', {}, `${done} of ${all.length}`), ' have nutrition'))),
       h('ul', { class: 'checks' }, draft.ingredients.map((i) => (i.id === open ? activeRow(i) : row(i)))),
-      h('div', { class: 'sticky' },
-        scanTarget ? h('button', { class: 'btn primary big', type: 'button', onclick: () => scanFor(scanTarget) }, icon('barcode'), `Scan next: ${scanTarget.name}`) : null,
-        h('button', { class: `btn ${scanTarget ? 'quiet' : 'primary big'}`, type: 'button', disabled: busy, onclick: finish },
-          left.length ? `${finishLabel} · ${left.length} can be finished later` : finishLabel)));
+      nextTarget
+        ? h('div', { class: 'sticky two' },
+          h('button', { class: 'btn secondary big', type: 'button', disabled: busy, onclick: finish }, finishText),
+          h('button', { class: 'btn secondary big', type: 'button', onclick: () => { open = nextTarget.id; render(); } }, `Next: ${nextTarget.name}`, icon('chevron-right')))
+        : h('div', { class: 'sticky' },
+          h('button', { class: `btn ${left.length ? 'secondary' : 'primary'} big`, type: 'button', disabled: busy, onclick: finish }, finishText)));
+  }
+
+  // What a row with a linked product still needs, in a few words.
+  function needText(i, p) {
+    const need = missingMeasure(i, p, state.densityForIngredient(i));
+    return need === 'spoon' ? 'needs the weight of 1 tbsp' : need === 'item' ? 'needs the weight of one' : `can’t be counted in ${i.unit}`;
   }
 
   function row(i) {
@@ -96,10 +113,10 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
     const p = product(i);
     const sub = s === 'not_counted' ? (i.seasoning ? 'Seasoning · not counted' : 'To taste · not counted')
       : s === 'ok' ? p.name
-        : s === 'unconvertible' ? `${p.name} · this amount can’t be counted against it`
-          : 'Needs nutrition';
+        : s === 'unconvertible' ? `${p.name} · ${needText(i, p)}`
+          : 'Needs a product';
     return h('li', {},
-      h('span', { class: `status ${s === 'ok' ? 'done' : s === 'not_counted' ? 'skip' : 'todo'}`, 'aria-hidden': 'true' }, s === 'ok' ? icon('check') : null),
+      h('span', { class: `status ${s === 'ok' ? 'done' : s === 'not_counted' ? 'skip' : s === 'unconvertible' ? 'half' : 'todo'}`, 'aria-hidden': 'true' }, s === 'ok' ? icon('check') : null),
       h('button', { class: 'txt as-button', type: 'button', onclick: () => { open = i.id; render(); } }, h('b', {}, i.name), h('span', {}, sub)),
       h('span', { class: 'amt' }, i.unit === 'to taste' ? '' : formatAmount(i.qty, i.unit, { ...amountOpts(), density: state.densityForIngredient(i) })));
   }
@@ -109,10 +126,10 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
     const p = product(i);
     const density = state.densityForIngredient(i);
     const opts = i.qty == null ? [] : unitOptions(i.unit, density);
+    const need = s === 'unconvertible' ? missingMeasure(i, p, density) : null;
     const sub = [
-      s === 'ok' ? `Linked · ${productSummary(p)}`
-        : s === 'unconvertible' ? `${p.name} is ${p.basis === 'item' ? 'per item' : `per ${p.basis.replace('100', '100 ')}`}, so this amount can’t be counted${itemWeightHelps(i, p) ? ' until it has the weight of one' : ''}`
-          : s === 'not_counted' ? (i.seasoning ? 'Seasoning · not counted' : 'Not counted') : 'Needs nutrition',
+      s === 'ok' ? 'Counted' : s === 'unconvertible' ? null
+        : s === 'not_counted' ? (i.seasoning ? 'Seasoning · not counted' : 'Not counted') : 'Needs a product',
       i.sourceLine ? `imported as “${i.sourceLine}”` : null,
     ].filter(Boolean).join(' · ');
 
@@ -133,7 +150,7 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
       h('div', { class: 'top' }, h('h4', {}, i.name),
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Rename', onclick: () => editFull(i) }, icon('pencil')),
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Delete ingredient', onclick: () => { update(removeIngredient(draft, i.id)); open = null; render(); } }, icon('trash'))),
-      h('p', { class: 'sub' }, sub),
+      sub ? h('p', { class: 'sub' }, sub) : null,
       i.qty == null ? null : h('div', { class: 'qty' }, qtyEl,
         opts.length > 1 ? h('div', { class: 'seg', role: 'group', 'aria-label': 'Unit' }, opts.map((o) => h('button', {
           type: 'button', 'aria-pressed': String(o.unit === i.unit), disabled: !o.ok, title: o.reason ?? null,
@@ -143,21 +160,56 @@ export function openCheckIngredients({ recipe, onChange, onFinish, finishLabel =
       i.seasoning
         ? h('div', { class: 'more' },
           h('button', { class: 'btn quiet', type: 'button', onclick: () => setIng(i.id, { seasoning: false }) }, 'Not a seasoning'))
-        : [
-          h('div', { class: 'acts' },
-            h('button', { class: 'btn primary', type: 'button', onclick: () => scanFor(i) }, icon('barcode'), 'Scan'),
-            p ? h('button', { class: 'btn secondary', type: 'button', onclick: () => editProduct(p) }, icon('pencil'), 'Edit product')
-              : h('button', { class: 'btn secondary', type: 'button', onclick: () => editFull(i) }, icon('search'), 'Products')),
+        : p ? [
+          s === 'unconvertible' ? track(need, i.unit) : null,
+          h('div', { class: 'suggest linked' }, h('span', { class: 'pk' }, icon('check')),
+            h('span', { class: 'txt' }, h('b', {}, p.name), h('span', {}, productSummary(p))),
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => browse(i) }, 'Change')),
+          s === 'unconvertible' ? measureBox({
+            need, product: p, unit: i.unit, qty: i.qty, name: i.name,
+            onSave: (grams) => saveMeasure(p, need, grams),
+          }) : null,
           h('div', { class: 'more' },
-            p ? h('button', { class: 'btn quiet', type: 'button', onclick: () => editFull(i) }, 'Products')
-              : h('button', { class: 'btn quiet', type: 'button', onclick: () => openProductForm({ initial: { name: i.name }, onSaved: (prod) => linkTo(i, prod) }) }, 'From the label'),
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => editProduct(p) }, icon('pencil'), 'Edit product'),
             h('button', { class: 'btn quiet', type: 'button', onclick: () => markSeasoning(i) }, icon('leaf'), 'Seasoning'),
-            h('button', { class: 'btn quiet muted', type: 'button', onclick: () => { skipped.add(i.id); open = nextOpen(); render(); } }, 'Skip for now')),
+            s === 'ok' ? null : skipButton(i)),
+        ] : [
+          h('div', { class: 'acts' },
+            h('button', { class: 'btn secondary', type: 'button', onclick: () => browse(i) }, icon('search'), 'Your products'),
+            h('button', { class: 'btn secondary', type: 'button', onclick: () => scanFor(i) }, icon('barcode'), 'Scan')),
+          h('div', { class: 'more' },
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => openProductForm({ initial: { name: i.name }, onSaved: (prod) => linkTo(i, prod) }) }, 'From the label'),
+            h('button', { class: 'btn quiet', type: 'button', onclick: () => markSeasoning(i) }, icon('leaf'), 'Seasoning'),
+            skipButton(i)),
         ]);
   }
 
-  // The amount fails only because the product doesn't know what one weighs.
-  const itemWeightHelps = (i, p) => p && !p.gramsPerItem && ((i.unit === 'each' && p.basis === '100g') || (isWeight(i.unit) && p.basis === 'item'));
+  const skipButton = (i) => h('button', { class: 'btn quiet muted', type: 'button', onclick: () => { skipped.add(i.id); open = nextOpen(); render(); } }, 'Skip for now');
+
+  // Product ✓ → the measurement still missing. Says which step is the blocker.
+  function track(need, unit) {
+    const second = need === 'spoon' ? 'Weight of 1 tbsp' : need === 'item' ? 'Weight of one' : `Amount in ${unit}`;
+    return h('ol', { class: 'track', 'aria-label': 'What this ingredient needs' },
+      h('li', { class: 'done' }, h('span', { class: 'dot', 'aria-hidden': 'true' }, icon('check')), 'Product', h('span', { class: 'visually-hidden' }, ' (done)')),
+      h('li', { class: 'now' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), second, h('span', { class: 'visually-hidden' }, ' (needed)')));
+  }
+
+  // Saves the measurement on the product; every recipe using it re-reads it.
+  async function saveMeasure(p, need, grams) {
+    try {
+      await state.saveProduct({ ...p, [need === 'spoon' ? 'gramsPerTbsp' : 'gramsPerItem']: grams });
+      toast('Weight saved');
+      open = nextOpen();
+      render();
+    } catch (e) {
+      toast(e.message, { error: true });
+    }
+  }
+
+  function browse(i) {
+    open = i.id;
+    openProductSearch({ forName: i.name, onPick: (prod) => linkTo(i, prod) });
+  }
 
   function markSeasoning(i) {
     setIng(i.id, { seasoning: true });

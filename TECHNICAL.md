@@ -64,8 +64,8 @@ js/
   router.js           hash routes
   demo-data.js        the sample recipes for ?demo
   components/         dom (h), icons, flag, sheet, stepper, toast, photo, toggle
-  views/              home, recipe-sheet, editor, ingredient, product, scanner,
-                      check, settings, bloc-import, signin, listly
+  views/              home, recipe-sheet, editor, ingredient, product, products,
+                      scanner, check, settings, bloc-import, signin, listly
   lib/                pure functions, all tested: recipes, scale, units, format,
                       densities, method, validate, rows, backup, off, parse,
                       bloc-import, claude-shape, cuisines, ids, shopping
@@ -113,7 +113,7 @@ Recipe     { id, name, serves, meal, cuisine, photoPath, blocRecipeId, ingredien
 Ingredient { id, name, qty, unit, productId, seasoning }   // qty null = don't scale; seasoning §26
 Step       { id, text, ingredientIds[] }          // tags, in ingredient-list order
 Cooking    { id, method, name, minutes, tempC, note }      // §27; name only for 'other'
-Product    { id, name, brand, barcode, basis, kcal, protein, carbs, fat, gramsPerItem, source }
+Product    { id, name, brand, barcode, basis, kcal, protein, carbs, fat, gramsPerItem, gramsPerTbsp, source }
 Nutrition  { kcal, protein, carbs, fat, counted, missing, notCounted, complete }  // per serving
 ```
 
@@ -121,6 +121,8 @@ Nutrition  { kcal, protein, carbs, fat, counted, missing, notCounted, complete }
   `cuisine` is an ISO alpha-2 code or null.
 - `unit` ∈ `g kg ml l tsp tbsp cup each`, `to taste`.
 - `basis` ∈ `100g | 100ml | item`; `source` ∈ `label | off | bloc`.
+- `gramsPerTbsp`: the measured weight of one level tablespoon of a per-100 g product (0–100 g, null = unknown); §12.
+  `productToRow` sends null for any other basis.
 - Ids are version 4 uuids from `lib/ids.js` `newId()`, made when the row is created: `crypto.randomUUID()`
   where it exists, else the same uuid from `crypto.getRandomValues` (`uuidFromRandom`). 🚨 `randomUUID` only
   exists in a secure context, so on a phone testing over `http://<Mac LAN IP>:8000` it is missing; nothing
@@ -144,7 +146,7 @@ data, and each writes through `storage.js` first:
 | `saveProduct(p)` / `deleteProduct(id)` | upsert / delete, then refresh nutrition for every recipe using it |
 
 Lookups: `getRecipe`, `getProduct`, `productByBarcode`, `searchProducts(text)` (every word must
-match name or brand), `matchProduct(name)` (exact name, then singular/plural), and
+match name, brand or barcode), `matchProduct(name)` (exact name, then singular/plural), and
 `densityForIngredient(i)`.
 
 **`storage.js`** is the only module that talks to Supabase or to stored data. Two backends behind
@@ -272,7 +274,7 @@ can show Ingredients and Method side by side (§25).
   (`removeIngredient`).
 - **Save:** empty steps are dropped, `validateRecipe()` lists every problem at once, then the photo
   uploads and `state.saveRecipe()`. Closing with changes asks "Discard changes?".
-- **Delete recipe** (edit only) asks first and says it goes for everyone in the household.
+- **Delete recipe** (edit only; also in the card menu, §23) asks first and says it goes for everyone in the household, in Pinch and in BLOC.
 - **The name field and "(Meal) " prefixes.** A recipe imported from BLOC is stored as BLOC named it, "(Dinner)
   Lasagne". Every screen shows `displayName(name)` (the name without a leading `(Breakfast|Lunch|Dinner|Snack(s))`), and
   sorting uses it too. The editor's name field shows `splitMealPrefix(name).title` and writes `prefix + typed text`, so
@@ -283,20 +285,42 @@ can show Ingredients and Method side by side (§25).
 
 `views/ingredient.js` (screen 09): name, amount, and a unit chip from the controlled list (`to taste`
 clears the amount). Typing a name lists **household products** that match ("Nutrition · from your
-products"); otherwise Scan barcode or From label. A linked product shows with Unlink. An ingredient
-can be saved without a product. The **Seasoning** switch (§26) sits under the amount; while it is on there is
-no product part at all. A linked product has **Edit** (the product form, for every recipe that uses it) and
-Unlink. When the amount can't be counted only because the product lacks a weight of one item — `each`
-against a per-100 g product, or grams against a per-item one — the sheet asks "One … weighs __ g" and
-saves it on the product (`state.saveProduct`), which re-reads every recipe using it. For tsp, tbsp and cup the number box is replaced by a whole-number
+products"), then **Search all N of your products** (the library, below), then, under "Not in your products?",
+Scan barcode and From label as equal secondary buttons. An ingredient can be saved without a product. The
+**Seasoning** switch (§26) sits under the amount; while it is on there is no product part at all. A linked product
+shows with **Change** (the library), **Edit product** (the product form, for every recipe that uses it) and Unlink;
+there is no Scan once a product is linked, because a rescan links the same product and can never fix an amount.
+
+**The one missing measurement** (`measureBox`, shared with Check ingredients). When the amount can't be counted
+against the linked product, `lib/units.js` `missingMeasure()` names the one number on the product that would fix it,
+and the box asks for it as the sheet's primary action, saving it on the product (`state.saveProduct`, which re-reads
+every recipe using it):
+- `'spoon'` — tsp, tbsp or cup of a per-100 g product: "How much does 1 tbsp weigh?" (0–100 g), with a live
+  "2 tbsp = 32 g". Stored as `gramsPerTbsp`; tsp is a third of it and a cup 250⁄15 of it.
+- `'item'` — `each` against a per-100 g product, or grams against a per-item one: "How much does one … weigh?".
+- `null` — no number helps (ml of a per-100 g product, a cup of a per-item one): the box says so and suggests
+  changing the unit or the product.
+
+🚨 **A spoon weight is a measurement, not a conversion.** It is entered for one product by the cook, which is why it
+may count a spoon of a weighed product while g ↔ ml is still never offered: ml and l of a per-100 g product stay
+`unconvertible` with or without one. Do not derive a density from it for display either; spoons are never converted
+on screen (§10).
+
+For tsp, tbsp and cup the number box is replaced by a whole-number
 stepper and – ¼ ½ ¾, so a spoon or cup amount is always a quarter; an existing amount that isn't
 (a recipe's 0.33 tsp) is kept exactly, with a line saying so, until the picker is pressed.
 
 `views/product.js` (screen 10): name, brand, optional barcode (6–14 digits, unique in the household),
 nutrition per 100 g / 100 ml / item, all four macros required (0 is fine), optional weight of one
-item (hidden for per-100 ml products). Saved to the household with `state.saveProduct()`. Opened with an
+item (hidden for per-100 ml products), and, for a per-100 g product only, an optional weight of 1 tbsp. Saved to the household with `state.saveProduct()`. Opened with an
 existing product (from Add ingredient's Edit, Check ingredients' Edit product, or a scan of one of your
 products) it edits that product, and says it changes in every recipe that uses it.
+
+**Your products** (`views/products.js`, `openProductSearch({ forName, onPick })`): the whole household library in a
+sheet. A search box matches name, brand or barcode (`searchProducts`); empty, it lists the products matching the
+ingredient's name, then every product A–Z. Scan barcode and New product sit in the footer; whichever way a product
+arrives, it is linked. Opened from Add ingredient (Search all, Change) and from Check ingredients (Your products,
+Change).
 
 Photos and Open Food Facts images are never stored as products; a product has no image.
 
@@ -326,18 +350,28 @@ Photos and Open Food Facts images are never stored as products; a product has no
 - Progress: `N of M have nutrition`, where M is the ingredients that will be counted (not "to taste").
 - Status per row uses `nutritionStatus()` (§18): done, needs nutrition, or "this amount can't be
   counted against it" when a product is linked but the units can't meet.
-- **One row is open at a time**: Rename (opens Add ingredient), Delete, the amount, the unit switch,
-  Scan / Products (Scan / **Edit product** when a product is linked), From the label, **Seasoning**,
-  Skip for now. Seasoning marks the row (§26) and moves on; an open seasoning row has only
-  "Not a seasoning". Seasonings and "to taste" rows are listed as not counted.
-- An `unconvertible` row whose product only lacks the weight of one item says "…until it has the
-  weight of one"; Edit product is where it is added.
+- **One row is open at a time**: Rename (opens Add ingredient), Delete, the amount, the unit switch, then
+  what the row still needs:
+  - **no product:** Your products and Scan, as equal secondary buttons, then From the label, **Seasoning**,
+    Skip for now;
+  - **a linked product that can't count the amount:** a two-step track (Product ✓ → "Weight of 1 tbsp" / "Weight
+    of one" / "Amount in ml"), the linked product with **Change**, and `measureBox` (§12) as the row's only
+    primary button. Saving the measurement moves to the next row. Then Edit product, Seasoning, Skip for now;
+  - **counted:** the linked product with Change, Edit product, Seasoning.
+  Seasoning marks the row (§26) and moves on; an open seasoning row has only "Not a seasoning". Seasonings and
+  "to taste" rows are listed as not counted.
+- 🚨 **No Scan once a product is linked, and the footer never says "Scan next".** A row linked to a per-100 g product
+  in tbsp is blocked by the missing spoon weight, not by the product: a green Scan there sends the cook round a loop
+  of rescanning the same barcode, which can never fix it. Change picks a different product.
+- Collapsed rows say what each still needs: "Needs a product", "… · needs the weight of 1 tbsp", "… · needs the
+  weight of one", "… · can't be counted in ml". A linked-but-blocked row's status dot is half filled.
 - **The unit switch converts the stored amount** using `unitOptions(unit, density)`: the
   ingredient's own unit plus cup, and cups can go to g (needs a density) or ml. A disabled option
   says why. Below it, the other units: "Same as 375 ml · about 200 g (plain flour density)". Into
   cups the amount snaps to a quarter; into g or ml it rounds.
-- Sticky footer: `Scan next: <name>` and the finish button ("Next: the method" after an import,
-  "Save recipe" from a saved recipe), with "· N can be finished later".
+- Sticky footer: the finish button ("Next: the method" after an import, "Save recipe" from a saved recipe, with
+  "· N later") and, while another row needs something, **Next: <name>**, which opens that row whatever it needs.
+  With nothing left the finish button is the primary.
 
 ## 15. Import from the web
 
@@ -434,7 +468,11 @@ The recipes BLOC reads back are in the `bloc_recipes_v1` views; BLOC's side of t
   density (g per ml); g ↔ ml always an error.
 - **`unitOptions(unit, density)`** — what Check ingredients offers (§14).
 - **`nutritionStatus(ingredient, product, density)`** — the same cell rules as the
-  `ingredient_nutrition` view, for drafts.
+  `ingredient_nutrition` view, for drafts, including the spoon weight (tsp, tbsp and cup of a per-100 g product
+  with `gramsPerTbsp`; a cup by it ahead of the density).
+- **`missingMeasure(ingredient, product, density)`** — `'spoon' | 'item' | null`: the one number on the product
+  that would make an `unconvertible` amount count (§12). **`gramsBySpoon(qty, unit, gramsPerTbsp)`** — grams of a
+  tsp, tbsp or cup amount by it.
 - **`formatAmount(qty, unit, { mode, cup, density })`**:
   - `each`: a whole number, at least 1;
   - g/ml: one decimal under 10, whole under 100, nearest 5 above, kg/l from 1000;
@@ -482,7 +520,7 @@ file changes, and add new shell files to `SHELL_FILES`. Confirm with `curl` agai
 
 `tests.html` runs every file in `tests/` in the browser through `tests/kit.js` (describe / test /
 assertEqual / assertThrows, ~100 lines, no build). `#summary` shows the counts and the page title is
-`PASS n/n` or `FAIL`. 179 tests cover every module in `js/lib/`, including ingredient lines taken
+`PASS n/n` or `FAIL`. 185 tests cover every module in `js/lib/`, including ingredient lines taken
 from real recipe pages, saved Open Food Facts responses (complete, missing kcal, kJ only, a liquid),
 and a BLOC backup shape whose other data must not survive `readBlocBackup`.
 
@@ -502,12 +540,18 @@ photos, the density table matching `js/lib/densities.js`, sauces, seasonings and
   files.
 - **Offline is read-only.** Pinch opens offline with its last copy; saving needs a connection.
 - **A product has one nutrition basis.** A cup of a per-item product, or millilitres of a per-100 g
-  product, is reported missing rather than converted.
+  product, is reported missing rather than converted. Spoons and cups of a per-100 g product count only once it has a
+  weight of 1 tbsp.
 
 ## 23. Send to Listly
 
-`views/listly.js` with `lib/shopping.js`. Opened from a Home card's long-press menu (`openCardMenu`, whose one action it
-is) and from the basket on the recipe sheet, which passes the servings shown.
+`views/listly.js` with `lib/shopping.js`. Opened from a Home card's long-press menu and from the basket on the recipe
+sheet, which passes the servings shown.
+
+**The card menu** (`openCardMenu`, in the same file): Send to Listly, **Edit recipe** (the editor, as the recipe sheet's
+pencil) and **Delete recipe**, which asks first ("It goes for everyone in your household, in Pinch and in BLOC") and
+calls `state.deleteRecipe`, as the editor's Delete does. BLOC reads Pinch's views live, so a deleted recipe leaves BLOC's
+list too.
 
 - **The sheet:** a servings stepper, the shop (the household's `listly.shopping_lists`, in Listly's order: position, then
   id, no position last; it starts on the last list sent to from this device, else the starred list, else the first),

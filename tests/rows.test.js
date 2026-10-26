@@ -79,4 +79,10 @@ describe('products', () => {
     assertEqual([p.kcal, p.gramsPerItem], [370, null]);
     assertEqual(productToRow({ ...p, brand: '  ' }, 'hh').brand, null);
   });
+  test('the spoon weight goes both ways, and only on a per-100 g product', () => {
+    const p = rowToProduct({ id: 'p', name: 'Peanut butter', basis: '100g', kcal: 597, protein: 25, carbs: 13, fat: 50, grams_per_tbsp: '16' });
+    assertEqual([p.gramsPerTbsp, productToRow(p, 'hh').grams_per_tbsp], [16, 16]);
+    assertEqual(productToRow({ ...p, basis: '100ml' }, 'hh').grams_per_tbsp, null);
+    assertEqual(rowToProduct({ ...p, grams_per_tbsp: null }).gramsPerTbsp, null);
+  });
 });

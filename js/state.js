@@ -34,13 +34,14 @@ export const getProduct = (id) => (id ? state.products.find((p) => p.id === id) 
 export const productByBarcode = (code) => state.products.find((p) => p.barcode === code) ?? null;
 export const densityForIngredient = (i) => densityFor(i.name, getProduct(i.productId)?.name, state.densities);
 
-// Household products whose name contains every word typed, best first.
+// Household products whose name, brand or barcode contains every word
+// typed, best first.
 export function searchProducts(text, limit = 6) {
   const words = String(text).toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   return state.products
     .map((p) => {
-      const hay = `${p.name} ${p.brand ?? ''}`.toLowerCase();
+      const hay = `${p.name} ${p.brand ?? ''} ${p.barcode ?? ''}`.toLowerCase();
       if (!words.every((w) => hay.includes(w))) return null;
       return { p, score: (p.name.toLowerCase().startsWith(words[0]) ? 0 : 1) + p.name.length / 1000 };
     })

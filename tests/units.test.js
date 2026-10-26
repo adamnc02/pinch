@@ -1,5 +1,5 @@
 import { describe, test, assertEqual, assertTrue } from './kit.js';
-import { convert, unitOptions, nutritionStatus } from '../js/lib/units.js';
+import { convert, unitOptions, nutritionStatus, missingMeasure, gramsBySpoon } from '../js/lib/units.js';
 
 const near = (a, b) => Math.abs(a - b) < 1e-6;
 
@@ -77,5 +77,33 @@ describe('nutritionStatus (mirrors pinch.ingredient_nutrition)', () => {
     assertEqual(s(100, 'g', p('item')), 'unconvertible');
     assertEqual(s(100, 'g', p('item', 50)), 'ok');
     assertEqual(s(1, 'cup', p('item', 50)), 'unconvertible');
+  });
+});
+
+describe('the spoon weight (a per-100 g product\u2019s gramsPerTbsp)', () => {
+  const pb = (gramsPerTbsp = null, basis = '100g') => ({ basis, gramsPerTbsp, gramsPerItem: null });
+  const s = (qty, unit, product, density = null) => nutritionStatus({ qty, unit }, product, density);
+  test('a spoon of a per-100 g product counts only once it has a spoon weight', () => {
+    assertEqual([s(2, 'tbsp', pb()), s(2, 'tbsp', pb(16))], ['unconvertible', 'ok']);
+    assertEqual([s(1, 'tsp', pb()), s(1, 'tsp', pb(16))], ['unconvertible', 'ok']);
+  });
+  test('a cup counts by the spoon weight even with no density', () => {
+    assertEqual([s(1, 'cup', pb()), s(1, 'cup', pb(16))], ['unconvertible', 'ok']);
+  });
+  test('ml and l of a per-100 g product never count, spoon weight or not', () => {
+    assertEqual([s(100, 'ml', pb(16)), s(1, 'l', pb(16))], ['unconvertible', 'unconvertible']);
+  });
+  test('missingMeasure names the one number that would fix it', () => {
+    const m = (qty, unit, product, density = null) => missingMeasure({ qty, unit }, product, density);
+    assertEqual([m(2, 'tbsp', pb()), m(1, 'cup', pb()), m(2, 'tbsp', pb(16))], ['spoon', 'spoon', null]);
+    assertEqual(m(1, 'cup', pb(), 0.53), null);                               // the density already counts it
+    assertEqual([m(2, 'each', pb()), m(100, 'g', { basis: 'item', gramsPerItem: null })], ['item', 'item']);
+    assertEqual([m(100, 'ml', pb()), m(1, 'cup', { basis: 'item', gramsPerItem: 50 }), m(100, 'g', pb(16, '100ml'))], [null, null, null]);
+    assertEqual([m(2, 'tbsp', null), m(null, 'tbsp', pb())], [null, null]);  // no product; not counted
+  });
+  test('gramsBySpoon: tsp is a third, a stored cup is 250 ml', () => {
+    assertEqual([gramsBySpoon(2, 'tbsp', 16), gramsBySpoon(1.5, 'tsp', 16)], [32, 8]);
+    assertTrue(near(gramsBySpoon(1, 'cup', 15), 250));
+    assertEqual([gramsBySpoon(2, 'g', 16), gramsBySpoon(2, 'tbsp', null)], [null, null]);
   });
 });
